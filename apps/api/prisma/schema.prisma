@@ -1,0 +1,207 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String          @id @default(uuid())
+  name      String
+  status    String
+  createdAt DateTime        @default(now())
+  domains   TenantDomain[]
+  features  TenantFeature[]
+  users     User[]
+  patients  Patient[]
+  encounters Encounter[]
+  documents Document[]
+  auditEvents AuditEvent[]
+  invoices Invoice[]
+  payments Payment[]
+}
+
+model TenantDomain {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  domain    String   @unique
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+}
+
+model TenantFeature { 
+  id          String  @id @default(uuid())
+  tenantId    String
+  tenant      Tenant  @relation(fields: [tenantId], references: [id])
+  key         String
+  enabled     Boolean @default(false)
+  configJson  String? 
+
+  @@index([tenantId])
+  @@unique([tenantId, key])
+}
+
+model User {
+  id           String @id @default(uuid())
+  tenantId     String
+  tenant       Tenant @relation(fields: [tenantId], references: [id])
+  email        String
+  passwordHash String
+  name         String?
+  status       String @default("active")
+  createdAt    DateTime @default(now())
+
+  roleMappings UserRole[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+}
+
+model Role {
+  id          String @id @default(uuid())
+  tenantId    String
+  name        String
+  permissions RolePermission[]
+  users       UserRole[]
+  
+  @@unique([tenantId, name])
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User @relation(fields: [userId], references: [id])
+  role   Role @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  description String?
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+}
+
+model AuditEvent {
+  id             String   @id @default(uuid())
+  tenantId       String
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  actorUserId    String?
+  eventType      String
+  entityType     String
+  entityId       String
+  payloadJson    String?
+  createdAt      DateTime @default(now())
+  correlationId  String?
+
+  @@index([tenantId, createdAt])
+}
+
+model Patient {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  mrn       String?
+  name      String
+  dob       DateTime?
+  gender    String?
+  phone     String?
+  createdAt DateTime @default(now())
+
+  encounters Encounter[]
+  invoices   Invoice[]
+
+  @@index([tenantId])
+  @@unique([tenantId, mrn])
+}
+
+model Encounter {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  type      String
+  startedAt DateTime @default(now())
+  endedAt   DateTime?
+  
+  invoices  Invoice[]
+
+  @@index([tenantId, patientId])
+}
+
+model Invoice {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id])
+  encounterId String?
+  encounter   Encounter? @relation(fields: [encounterId], references: [id])
+  status      String
+  totalAmount Decimal
+  currency    String
+  createdAt   DateTime @default(now())
+
+  items       InvoiceItem[]
+  payments    Payment[]
+
+  @@index([tenantId])
+}
+
+model InvoiceItem {
+  id          String  @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id])
+  itemType    String
+  itemRefId   String?
+  description String
+  qty         Int
+  unitPrice   Decimal
+  amount      Decimal
+}
+
+model Payment {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+  method    String
+  amount    Decimal
+  receivedAt DateTime @default(now())
+  reference String?
+
+  @@index([tenantId])
+}
+
+model Document {
+  id              String   @id @default(uuid())
+  tenantId        String
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+  documentType    String
+  templateVersion String
+  payloadVersion  String
+  payloadHash     String
+  filePath        String
+  pdfHash         String?
+  status          String
+  createdAt       DateTime @default(now())
+  publishedAt     DateTime?
+
+  @@index([tenantId])
+}

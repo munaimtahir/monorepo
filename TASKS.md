@@ -4,16 +4,16 @@ Date: 2026-02-18
 This is the canonical checklist.
 
 ## Phase 0 — Skeleton
-- [ ] Create monorepo structure (apps/*, packages/*)
-- [ ] Docker compose: postgres, redis, api, web, worker, pdf
-- [ ] Auth + tenancy scaffolding
-- [ ] Feature flag scaffolding + /me/features
-- [ ] Audit event log scaffolding
-- [ ] OpenAPI pipeline + generated client used by web
-- [ ] Health endpoints for API + PDF
+- [x] Create monorepo structure (apps/*, packages/*)
+- [x] Docker compose: postgres, redis, api, web, worker, pdf
+- [x] Auth + tenancy scaffolding
+- [x] Feature flag scaffolding + /me/features
+- [x] Audit event log scaffolding
+- [x] OpenAPI pipeline + generated client used by web
+- [x] Health endpoints for API + PDF
 
 ## Phase 1 — Core entities
-- [ ] Patients (register/search)
+- [x] Patients (register/search)
 - [ ] Billing minimal (invoice + payment)
 - [ ] Documents registry + storage + hashes
 - [ ] Tenant branding config storage

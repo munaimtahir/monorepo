@@ -1,0 +1,176 @@
+openapi: 3.0.0
+info:
+  title: Vexel Health Platform API
+  version: 1.0.0
+  description: Official API contract for Vexel Health Platform
+servers:
+  - url: http://localhost:3000
+    description: Local development server
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /auth/login:
+    post:
+      summary: Login with email/password
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+  /me:
+    get:
+      summary: Get current user profile
+      operationId: getMe
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+  /me/features:
+    get:
+      summary: Get feature flags for current user scope
+      operationId: getMyFeatures
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Feature flags map
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: boolean
+  /patients:
+    post:
+      summary: Register a new patient
+      operationId: createPatient
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePatientDto'
+      responses:
+        '201':
+          description: Patient created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+    get:
+      summary: Search patients
+      operationId: listPatients
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: List of patients
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Patient'
+                  total:
+                    type: integer
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        tenantId:
+          type: string
+    CreatePatientDto:
+      type: object
+      required:
+        - name
+        - dob
+        - gender
+      properties:
+        name:
+          type: string
+        dob:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [male, female, other]
+        phone:
+          type: string
+    Patient:
+      allOf:
+        - $ref: '#/components/schemas/CreatePatientDto'
+        - type: object
+          properties:
+            id:
+              type: string
+            mrn:
+              type: string
+            createdAt:
+              type: string
+              format: date-time

@@ -1,0 +1,20 @@
+{
+  "name": "vexel-health-platform",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "docker compose up",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "contracts:generate": "npm run generate --workspace=@vexel/contracts"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "prettier": "^3.2.5",
+    "@types/node": "^20.11.20"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

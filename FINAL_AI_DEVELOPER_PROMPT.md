@@ -1,7 +1,7 @@
 # FINAL_AI_DEVELOPER_PROMPT.md
 Date: 2026-02-18
 
-You are the autonomous AI developer implementing Phase 0 and Phase 1 of the Vexel Health Platform monorepo.
+You are the autonomous AI developer implementing Phase 0 and Phase 1 of the Vexel Health Platform monorepxo.
 
 ## Read first (mandatory)
 1) Platform-Constitution.md
