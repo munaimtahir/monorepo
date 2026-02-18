@@ -108,3 +108,44 @@ curl -sS -o /tmp/tenant-b-doc.json -w '%{http_code}' \
 ```
 Observed:
 - HTTP `404`
+
+## Phase 3C RAD MAIN flow
+Create RAD encounter:
+```bash
+curl -sS -X POST http://127.0.0.1:3000/encounters \
+  -H 'Host: tenant-a.test' \
+  -H 'Content-Type: application/json' \
+  -d '{"patientId":"<PATIENT_ID>","type":"RAD"}'
+```
+Observed:
+- `encounterCode=RAD-2026-000001`
+- `status=CREATED`
+
+Move through workflow and save MAIN:
+```bash
+curl -sS -X POST "http://127.0.0.1:3000/encounters/<RAD_ENCOUNTER_ID>:start-prep" -H 'Host: tenant-a.test'
+curl -sS -X POST "http://127.0.0.1:3000/encounters/<RAD_ENCOUNTER_ID>:start-main" -H 'Host: tenant-a.test'
+curl -sS -X POST "http://127.0.0.1:3000/encounters/<RAD_ENCOUNTER_ID>:save-main" \
+  -H 'Host: tenant-a.test' \
+  -H 'Content-Type: application/json' \
+  -d '{"reportText":"No acute cardiopulmonary abnormality.","impression":"Stable chest radiograph."}'
+curl -sS "http://127.0.0.1:3000/encounters/<RAD_ENCOUNTER_ID>/main" -H 'Host: tenant-a.test'
+curl -sS -X POST "http://127.0.0.1:3000/encounters/<RAD_ENCOUNTER_ID>:finalize" -H 'Host: tenant-a.test'
+```
+Observed:
+- `save-main` returns `type=RAD` and `radMain.reportText`.
+- `GET /encounters/<RAD_ENCOUNTER_ID>/main` returns saved RAD MAIN payload.
+- `FINALIZED` transition succeeds.
+
+Generate and fetch document:
+```bash
+curl -sS -X POST "http://127.0.0.1:3000/encounters/<RAD_ENCOUNTER_ID>:document" -H 'Host: tenant-a.test'
+curl -sS "http://127.0.0.1:3000/documents/<RAD_DOCUMENT_ID>" -H 'Host: tenant-a.test'
+curl -sS -D /tmp/rad-doc-headers.txt \
+  "http://127.0.0.1:3000/documents/<RAD_DOCUMENT_ID>/file" \
+  -H 'Host: tenant-a.test' \
+  -o /tmp/rad-doc.pdf
+```
+Observed:
+- Document reaches `RENDERED`.
+- `/documents/{id}/file` returns `Content-Type: application/pdf`.

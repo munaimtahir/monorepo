@@ -16,6 +16,12 @@ type EncounterPrepResponse =
   paths['/encounters/{id}/prep']['get']['responses'][200]['content']['application/json'];
 type SavePrepRequest =
   paths['/encounters/{id}:save-prep']['post']['requestBody']['content']['application/json'];
+type EncounterMainResponse =
+  paths['/encounters/{id}/main']['get']['responses'][200]['content']['application/json'];
+type SaveMainRequest =
+  paths['/encounters/{id}:save-main']['post']['requestBody']['content']['application/json'];
+type DocumentResponse =
+  paths['/encounters/{id}:document']['post']['responses'][200]['content']['application/json'];
 
 type PrepFormState = {
   specimenType: string;
@@ -48,6 +54,27 @@ type PrepFormState = {
   admittingNotes: string;
 };
 
+type MainFormState = {
+  resultSummary: string;
+  verifiedBy: string;
+  verifiedAt: string;
+  reportText: string;
+  impression: string;
+  radiologistName: string;
+  reportedAt: string;
+  chiefComplaint: string;
+  assessment: string;
+  plan: string;
+  prescriptionText: string;
+  crossmatchResult: '' | 'COMPATIBLE' | 'INCOMPATIBLE';
+  componentIssued: string;
+  unitsIssued: string;
+  issuedAt: string;
+  issueNotes: string;
+  dailyNote: string;
+  orders: string;
+};
+
 const defaultPrepFormState: PrepFormState = {
   specimenType: '',
   collectedAt: '',
@@ -77,6 +104,27 @@ const defaultPrepFormState: PrepFormState = {
   ward: '',
   bed: '',
   admittingNotes: '',
+};
+
+const defaultMainFormState: MainFormState = {
+  resultSummary: '',
+  verifiedBy: '',
+  verifiedAt: '',
+  reportText: '',
+  impression: '',
+  radiologistName: '',
+  reportedAt: '',
+  chiefComplaint: '',
+  assessment: '',
+  plan: '',
+  prescriptionText: '',
+  crossmatchResult: '',
+  componentIssued: '',
+  unitsIssued: '',
+  issuedAt: '',
+  issueNotes: '',
+  dailyNote: '',
+  orders: '',
 };
 
 function toDateTimeLocal(value: string | null | undefined): string {
@@ -255,6 +303,105 @@ function prepSummaryRows(prep: EncounterPrepResponse): Array<[string, string]> {
   return [['Prep Data', 'Not saved yet']];
 }
 
+function buildMainPayload(
+  encounterType: Encounter['type'],
+  state: MainFormState,
+): SaveMainRequest {
+  if (encounterType === 'LAB') {
+    return {
+      resultSummary: state.resultSummary || undefined,
+      verifiedBy: state.verifiedBy || undefined,
+      verifiedAt: toIsoOrUndefined(state.verifiedAt),
+    };
+  }
+
+  if (encounterType === 'RAD') {
+    return {
+      reportText: state.reportText || undefined,
+      impression: state.impression || undefined,
+      radiologistName: state.radiologistName || undefined,
+      reportedAt: toIsoOrUndefined(state.reportedAt),
+    };
+  }
+
+  if (encounterType === 'OPD') {
+    return {
+      chiefComplaint: state.chiefComplaint || undefined,
+      assessment: state.assessment || undefined,
+      plan: state.plan || undefined,
+      prescriptionText: state.prescriptionText || undefined,
+    };
+  }
+
+  if (encounterType === 'BB') {
+    return {
+      crossmatchResult: state.crossmatchResult || undefined,
+      componentIssued: state.componentIssued || undefined,
+      unitsIssued: toNumberOrUndefined(state.unitsIssued),
+      issuedAt: toIsoOrUndefined(state.issuedAt),
+      issueNotes: state.issueNotes || undefined,
+    };
+  }
+
+  return {
+    dailyNote: state.dailyNote || undefined,
+    orders: state.orders || undefined,
+  };
+}
+
+function mainSummaryRows(main: EncounterMainResponse): Array<[string, string]> {
+  if (main.type === 'LAB' && main.labMain) {
+    return [
+      ['Result Summary', main.labMain.resultSummary ?? '-'],
+      ['Verified By', main.labMain.verifiedBy ?? '-'],
+      [
+        'Verified At',
+        main.labMain.verifiedAt ? new Date(main.labMain.verifiedAt).toLocaleString() : '-',
+      ],
+    ];
+  }
+
+  if (main.type === 'RAD' && main.radMain) {
+    return [
+      ['Report Text', main.radMain.reportText ?? '-'],
+      ['Impression', main.radMain.impression ?? '-'],
+      ['Radiologist', main.radMain.radiologistName ?? '-'],
+      [
+        'Reported At',
+        main.radMain.reportedAt ? new Date(main.radMain.reportedAt).toLocaleString() : '-',
+      ],
+    ];
+  }
+
+  if (main.type === 'OPD' && main.opdMain) {
+    return [
+      ['Chief Complaint', main.opdMain.chiefComplaint ?? '-'],
+      ['Assessment', main.opdMain.assessment ?? '-'],
+      ['Plan', main.opdMain.plan ?? '-'],
+      ['Prescription', main.opdMain.prescriptionText ?? '-'],
+    ];
+  }
+
+  if (main.type === 'BB' && main.bbMain) {
+    return [
+      ['Crossmatch', main.bbMain.crossmatchResult ?? '-'],
+      ['Component Issued', main.bbMain.componentIssued ?? '-'],
+      ['Units Issued', String(main.bbMain.unitsIssued ?? '-')],
+      ['Issued At', main.bbMain.issuedAt ? new Date(main.bbMain.issuedAt).toLocaleString() : '-'],
+      ['Issue Notes', main.bbMain.issueNotes ?? '-'],
+    ];
+  }
+
+  if (main.type === 'IPD' && main.ipdMain) {
+    return [
+      ['Daily Note', main.ipdMain.dailyNote ?? '-'],
+      ['Orders', main.ipdMain.orders ?? '-'],
+    ];
+  }
+
+  return [['Main Data', 'Not saved yet']];
+}
+
 export default function EncounterDetailPage() {
   const params = useParams<{ encounterId: string }>();
   const encounterId = typeof params.encounterId === 'string' ? params.encounterId : '';
@@ -263,7 +410,14 @@ export default function EncounterDetailPage() {
   const [actionSuccess, setActionSuccess] = useState('');
   const [isSavingPrep, setIsSavingPrep] = useState(false);
   const [isStartingMain, setIsStartingMain] = useState(false);
+  const [isSavingMain, setIsSavingMain] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isGeneratingDocument, setIsGeneratingDocument] = useState(false);
+  const [isRefreshingDocument, setIsRefreshingDocument] = useState(false);
+  const [isDownloadingDocument, setIsDownloadingDocument] = useState(false);
   const [prepForm, setPrepForm] = useState<PrepFormState>(defaultPrepFormState);
+  const [mainForm, setMainForm] = useState<MainFormState>(defaultMainFormState);
+  const [documentMeta, setDocumentMeta] = useState<DocumentResponse | null>(null);
 
   const {
     data: encounter,
@@ -339,6 +493,33 @@ export default function EncounterDetailPage() {
 
       if (!data) {
         throw new Error('Prep not found');
+      }
+
+      return data;
+    },
+  });
+
+  const {
+    data: main,
+    isLoading: mainLoading,
+    error: mainError,
+    refetch: refetchMain,
+  } = useQuery<EncounterMainResponse>({
+    queryKey: ['encounter-main', encounterId],
+    enabled: Boolean(encounterId),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/encounters/{id}/main', {
+        params: {
+          path: { id: encounterId },
+        },
+      });
+
+      if (error) {
+        throw new Error(parseApiError(error, 'Failed to load main data').message);
+      }
+
+      if (!data) {
+        throw new Error('Main data not found');
       }
 
       return data;
@@ -439,6 +620,68 @@ export default function EncounterDetailPage() {
     }
   }, [prep]);
 
+  useEffect(() => {
+    if (!main) {
+      setMainForm(defaultMainFormState);
+      return;
+    }
+
+    if (main.type === 'LAB' && main.labMain) {
+      setMainForm((previous) => ({
+        ...previous,
+        resultSummary: main.labMain?.resultSummary ?? '',
+        verifiedBy: main.labMain?.verifiedBy ?? '',
+        verifiedAt: toDateTimeLocal(main.labMain?.verifiedAt),
+      }));
+      return;
+    }
+
+    if (main.type === 'RAD' && main.radMain) {
+      setMainForm((previous) => ({
+        ...previous,
+        reportText: main.radMain?.reportText ?? '',
+        impression: main.radMain?.impression ?? '',
+        radiologistName: main.radMain?.radiologistName ?? '',
+        reportedAt: toDateTimeLocal(main.radMain?.reportedAt),
+      }));
+      return;
+    }
+
+    if (main.type === 'OPD' && main.opdMain) {
+      setMainForm((previous) => ({
+        ...previous,
+        chiefComplaint: main.opdMain?.chiefComplaint ?? '',
+        assessment: main.opdMain?.assessment ?? '',
+        plan: main.opdMain?.plan ?? '',
+        prescriptionText: main.opdMain?.prescriptionText ?? '',
+      }));
+      return;
+    }
+
+    if (main.type === 'BB' && main.bbMain) {
+      setMainForm((previous) => ({
+        ...previous,
+        crossmatchResult: main.bbMain?.crossmatchResult ?? '',
+        componentIssued: main.bbMain?.componentIssued ?? '',
+        unitsIssued:
+          main.bbMain?.unitsIssued === null || main.bbMain?.unitsIssued === undefined
+            ? ''
+            : String(main.bbMain.unitsIssued),
+        issuedAt: toDateTimeLocal(main.bbMain?.issuedAt),
+        issueNotes: main.bbMain?.issueNotes ?? '',
+      }));
+      return;
+    }
+
+    if (main.type === 'IPD' && main.ipdMain) {
+      setMainForm((previous) => ({
+        ...previous,
+        dailyNote: main.ipdMain?.dailyNote ?? '',
+        orders: main.ipdMain?.orders ?? '',
+      }));
+    }
+  }, [main]);
+
   const prepRows = useMemo(() => {
     if (!prep) {
       return [['Prep Data', 'Not saved yet']] as Array<[string, string]>;
@@ -446,6 +689,14 @@ export default function EncounterDetailPage() {
 
     return prepSummaryRows(prep);
   }, [prep]);
+
+  const mainRows = useMemo(() => {
+    if (!main) {
+      return [['Main Data', 'Not saved yet']] as Array<[string, string]>;
+    }
+
+    return mainSummaryRows(main);
+  }, [main]);
 
   if (encounterLoading) {
     return <div className="p-8">Loading encounter...</div>;
@@ -521,7 +772,153 @@ export default function EncounterDetailPage() {
     }
 
     setActionSuccess('Encounter moved to IN_PROGRESS');
-    await Promise.all([refetchEncounter(), refetchPrep()]);
+    await Promise.all([refetchEncounter(), refetchPrep(), refetchMain()]);
+  };
+
+  const saveMain = async () => {
+    setActionError('');
+    setActionSuccess('');
+    setIsSavingMain(true);
+
+    const payload = buildMainPayload(encounter.type, mainForm);
+
+    const { data, error } = await client.POST('/encounters/{id}:save-main', {
+      params: {
+        path: { id: encounter.id },
+      },
+      body: payload,
+    });
+
+    setIsSavingMain(false);
+
+    if (error) {
+      setActionError(parseApiError(error, 'Failed to save main').message);
+      return;
+    }
+
+    if (!data) {
+      setActionError('Failed to save main');
+      return;
+    }
+
+    setActionSuccess('Main data saved');
+    await refetchMain();
+  };
+
+  const finalizeEncounter = async () => {
+    setActionError('');
+    setActionSuccess('');
+    setIsFinalizing(true);
+
+    const { error } = await client.POST('/encounters/{id}:finalize', {
+      params: {
+        path: { id: encounter.id },
+      },
+    });
+
+    setIsFinalizing(false);
+
+    if (error) {
+      setActionError(parseApiError(error, 'Failed to finalize encounter').message);
+      return;
+    }
+
+    setActionSuccess('Encounter moved to FINALIZED');
+    await Promise.all([refetchEncounter(), refetchMain()]);
+  };
+
+  const generateDocument = async () => {
+    setActionError('');
+    setActionSuccess('');
+    setIsGeneratingDocument(true);
+
+    const { data, error } = await client.POST('/encounters/{id}:document', {
+      params: {
+        path: { id: encounter.id },
+      },
+    });
+
+    setIsGeneratingDocument(false);
+
+    if (error) {
+      setActionError(parseApiError(error, 'Failed to generate document').message);
+      return;
+    }
+
+    if (!data) {
+      setActionError('Failed to generate document');
+      return;
+    }
+
+    setDocumentMeta(data);
+    setActionSuccess(
+      data.status === 'RENDERED'
+        ? 'Document rendered and ready to download'
+        : `Document ${data.status.toLowerCase()}`,
+    );
+    await refetchEncounter();
+  };
+
+  const refreshDocument = async () => {
+    if (!documentMeta?.id) {
+      return;
+    }
+
+    setActionError('');
+    setIsRefreshingDocument(true);
+    const { data, error } = await client.GET('/documents/{documentId}', {
+      params: {
+        path: { documentId: documentMeta.id },
+      },
+    });
+    setIsRefreshingDocument(false);
+
+    if (error) {
+      setActionError(parseApiError(error, 'Failed to refresh document').message);
+      return;
+    }
+
+    if (data) {
+      setDocumentMeta(data);
+    }
+  };
+
+  const downloadDocument = async () => {
+    if (!documentMeta?.id) {
+      return;
+    }
+
+    setActionError('');
+    setIsDownloadingDocument(true);
+
+    const { data, error } = await client.GET('/documents/{documentId}/file', {
+      params: {
+        path: { documentId: documentMeta.id },
+      },
+      parseAs: 'arrayBuffer',
+    });
+
+    setIsDownloadingDocument(false);
+
+    if (error) {
+      setActionError(parseApiError(error, 'Failed to download document').message);
+      return;
+    }
+
+    if (!data) {
+      setActionError('No document bytes returned');
+      return;
+    }
+
+    const blob = new Blob([data], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const link = window.document.createElement('a');
+    link.href = url;
+    link.download = `${encounter.encounterCode}.pdf`;
+    window.document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -544,6 +941,11 @@ export default function EncounterDetailPage() {
       {prepError && (
         <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
           {prepError instanceof Error ? prepError.message : 'Failed to load prep data'}
+        </div>
+      )}
+      {mainError && (
+        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
+          {mainError instanceof Error ? mainError.message : 'Failed to load main data'}
         </div>
       )}
 
@@ -967,6 +1369,389 @@ export default function EncounterDetailPage() {
           </div>
         )}
       </div>
+
+      <div className="rounded border bg-white p-6 shadow mb-6">
+        <h2 className="text-lg font-semibold mb-4">Main Data</h2>
+        {mainLoading ? (
+          <p className="text-sm text-gray-600">Loading main...</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-5">
+            {mainRows.map(([label, value]) => (
+              <p key={label}>
+                <span className="font-semibold">{label}:</span> {value}
+              </p>
+            ))}
+            <p>
+              <span className="font-semibold">Updated At:</span>{' '}
+              {main?.updatedAt ? new Date(main.updatedAt).toLocaleString() : '-'}
+            </p>
+          </div>
+        )}
+
+        {encounter.status === 'IN_PROGRESS' && (
+          <div className="space-y-4">
+            {encounter.type === 'LAB' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium">Result Summary</label>
+                  <textarea
+                    value={mainForm.resultSummary}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        resultSummary: event.target.value,
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Verified By</label>
+                  <input
+                    value={mainForm.verifiedBy}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        verifiedBy: event.target.value,
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Verified At</label>
+                  <input
+                    type="datetime-local"
+                    value={mainForm.verifiedAt}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        verifiedAt: event.target.value,
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                  />
+                </div>
+              </div>
+            )}
+
+            {encounter.type === 'RAD' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium">Report Text</label>
+                  <textarea
+                    value={mainForm.reportText}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        reportText: event.target.value,
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                    rows={4}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Impression</label>
+                  <input
+                    value={mainForm.impression}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        impression: event.target.value,
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Radiologist Name</label>
+                  <input
+                    value={mainForm.radiologistName}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        radiologistName: event.target.value,
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Reported At</label>
+                  <input
+                    type="datetime-local"
+                    value={mainForm.reportedAt}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        reportedAt: event.target.value,
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                  />
+                </div>
+              </div>
+            )}
+
+            {encounter.type === 'OPD' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium">Chief Complaint</label>
+                  <input
+                    value={mainForm.chiefComplaint}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        chiefComplaint: event.target.value,
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Assessment</label>
+                  <input
+                    value={mainForm.assessment}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        assessment: event.target.value,
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium">Plan</label>
+                  <textarea
+                    value={mainForm.plan}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        plan: event.target.value,
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                    rows={3}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium">Prescription</label>
+                  <textarea
+                    value={mainForm.prescriptionText}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        prescriptionText: event.target.value,
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                    rows={3}
+                  />
+                </div>
+              </div>
+            )}
+
+            {encounter.type === 'BB' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium">Crossmatch Result</label>
+                  <select
+                    value={mainForm.crossmatchResult}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        crossmatchResult: event.target.value as MainFormState['crossmatchResult'],
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                  >
+                    <option value="">Select...</option>
+                    <option value="COMPATIBLE">COMPATIBLE</option>
+                    <option value="INCOMPATIBLE">INCOMPATIBLE</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Component Issued</label>
+                  <input
+                    value={mainForm.componentIssued}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        componentIssued: event.target.value,
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Units Issued</label>
+                  <input
+                    value={mainForm.unitsIssued}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        unitsIssued: event.target.value,
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium">Issued At</label>
+                  <input
+                    type="datetime-local"
+                    value={mainForm.issuedAt}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        issuedAt: event.target.value,
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium">Issue Notes</label>
+                  <textarea
+                    value={mainForm.issueNotes}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        issueNotes: event.target.value,
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                    rows={3}
+                  />
+                </div>
+              </div>
+            )}
+
+            {encounter.type === 'IPD' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium">Daily Note</label>
+                  <textarea
+                    value={mainForm.dailyNote}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        dailyNote: event.target.value,
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                    rows={3}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium">Orders</label>
+                  <textarea
+                    value={mainForm.orders}
+                    onChange={(event) =>
+                      setMainForm((previous) => ({
+                        ...previous,
+                        orders: event.target.value,
+                      }))
+                    }
+                    className="mt-1 block w-full rounded border border-gray-300 p-2"
+                    rows={3}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  void saveMain();
+                }}
+                disabled={isSavingMain}
+                className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60"
+              >
+                {isSavingMain ? 'Saving...' : 'Save Main'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void finalizeEncounter();
+                }}
+                disabled={isFinalizing}
+                className="rounded bg-gray-900 px-4 py-2 text-white hover:bg-gray-700 disabled:opacity-60"
+              >
+                {isFinalizing ? 'Finalizing...' : 'Finalize Encounter'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {(encounter.status === 'FINALIZED' || encounter.status === 'DOCUMENTED') && (
+        <div className="rounded border bg-white p-6 shadow">
+          <h2 className="text-lg font-semibold mb-4">Document</h2>
+          {documentMeta ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-5">
+              <p>
+                <span className="font-semibold">Document ID:</span> {documentMeta.id}
+              </p>
+              <p>
+                <span className="font-semibold">Status:</span> {documentMeta.status}
+              </p>
+              <p>
+                <span className="font-semibold">Payload Hash:</span>{' '}
+                {documentMeta.payloadHash}
+              </p>
+              <p>
+                <span className="font-semibold">PDF Hash:</span> {documentMeta.pdfHash ?? '-'}
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-600 mb-5">
+              No document metadata loaded yet.
+            </p>
+          )}
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                void generateDocument();
+              }}
+              disabled={isGeneratingDocument}
+              className="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 disabled:opacity-60"
+            >
+              {isGeneratingDocument ? 'Generating...' : 'Generate Document'}
+            </button>
+            {documentMeta && (
+              <button
+                type="button"
+                onClick={() => {
+                  void refreshDocument();
+                }}
+                disabled={isRefreshingDocument}
+                className="rounded bg-gray-700 px-4 py-2 text-white hover:bg-gray-800 disabled:opacity-60"
+              >
+                {isRefreshingDocument ? 'Refreshing...' : 'Refresh Status'}
+              </button>
+            )}
+            {documentMeta?.status === 'RENDERED' && (
+              <button
+                type="button"
+                onClick={() => {
+                  void downloadDocument();
+                }}
+                disabled={isDownloadingDocument}
+                className="rounded bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-700 disabled:opacity-60"
+              >
+                {isDownloadingDocument ? 'Downloading...' : 'Download PDF'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

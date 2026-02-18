@@ -1,12 +1,18 @@
 import {
+  BbCrossmatchResult,
   BbUrgency,
+  type BbEncounterMain,
   type BbEncounterPrep,
+  type Encounter,
+  type IpdEncounterMain,
   type IpdEncounterPrep,
+  type LabEncounterMain,
   type LabEncounterPrep,
+  type OpdEncounterMain,
   type OpdEncounterPrep,
   Prisma,
+  type RadEncounterMain,
   type RadEncounterPrep,
-  type Encounter,
 } from '@prisma/client';
 import {
   BadRequestException,
@@ -17,6 +23,15 @@ import {
 import { ClsService } from 'nestjs-cls';
 import { DomainException } from '../common/errors/domain.exception';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  type BbMainSaveRequest,
+  type EncounterMainResponse,
+  type EncounterMainSaveRequest,
+  type IpdMainSaveRequest,
+  type LabMainSaveRequest,
+  type OpdMainSaveRequest,
+  type RadMainSaveRequest,
+} from './encounter-main.types';
 import {
   type BbPrepSaveRequest,
   type EncounterPrepResponse,
@@ -377,14 +392,255 @@ export class EncountersService {
     });
   }
 
+  async saveMain(
+    id: string,
+    payload: EncounterMainSaveRequest,
+  ): Promise<EncounterMainResponse> {
+    const tenantId = this.tenantId;
+    const encounter = await this.findEncounterById(id);
+
+    if (encounter.status !== encounterStates.IN_PROGRESS) {
+      throw new DomainException(
+        'INVALID_STATE',
+        'MAIN data can only be saved while encounter is IN_PROGRESS',
+      );
+    }
+
+    const mainPayload = this.ensureObjectPayload(payload);
+
+    if (encounter.type === 'LAB') {
+      const input = this.toLabMainInput(mainPayload);
+      const main = await this.prisma.labEncounterMain.upsert({
+        where: {
+          tenantId_encounterId: {
+            tenantId,
+            encounterId: encounter.id,
+          },
+        },
+        create: {
+          tenantId,
+          encounterId: encounter.id,
+          ...input,
+        },
+        update: {
+          ...input,
+        },
+      });
+      return this.toMainResponse(encounter, main);
+    }
+
+    if (encounter.type === 'RAD') {
+      const input = this.toRadMainInput(mainPayload);
+      const main = await this.prisma.radEncounterMain.upsert({
+        where: {
+          tenantId_encounterId: {
+            tenantId,
+            encounterId: encounter.id,
+          },
+        },
+        create: {
+          tenantId,
+          encounterId: encounter.id,
+          ...input,
+        },
+        update: {
+          ...input,
+        },
+      });
+      return this.toMainResponse(encounter, main);
+    }
+
+    if (encounter.type === 'OPD') {
+      const input = this.toOpdMainInput(mainPayload);
+      const main = await this.prisma.opdEncounterMain.upsert({
+        where: {
+          tenantId_encounterId: {
+            tenantId,
+            encounterId: encounter.id,
+          },
+        },
+        create: {
+          tenantId,
+          encounterId: encounter.id,
+          ...input,
+        },
+        update: {
+          ...input,
+        },
+      });
+      return this.toMainResponse(encounter, main);
+    }
+
+    if (encounter.type === 'BB') {
+      const input = this.toBbMainInput(mainPayload);
+      const main = await this.prisma.bbEncounterMain.upsert({
+        where: {
+          tenantId_encounterId: {
+            tenantId,
+            encounterId: encounter.id,
+          },
+        },
+        create: {
+          tenantId,
+          encounterId: encounter.id,
+          ...input,
+        },
+        update: {
+          ...input,
+        },
+      });
+      return this.toMainResponse(encounter, main);
+    }
+
+    const input = this.toIpdMainInput(mainPayload);
+    const main = await this.prisma.ipdEncounterMain.upsert({
+      where: {
+        tenantId_encounterId: {
+          tenantId,
+          encounterId: encounter.id,
+        },
+      },
+      create: {
+        tenantId,
+        encounterId: encounter.id,
+        ...input,
+      },
+      update: {
+        ...input,
+      },
+    });
+    return this.toMainResponse(encounter, main);
+  }
+
+  async getMain(id: string): Promise<EncounterMainResponse> {
+    const encounter = await this.findEncounterById(id);
+
+    if (encounter.type === 'LAB') {
+      const main = await this.prisma.labEncounterMain.findFirst({
+        where: {
+          tenantId: this.tenantId,
+          encounterId: encounter.id,
+        },
+      });
+      return this.toMainResponse(encounter, main);
+    }
+
+    if (encounter.type === 'RAD') {
+      const main = await this.prisma.radEncounterMain.findFirst({
+        where: {
+          tenantId: this.tenantId,
+          encounterId: encounter.id,
+        },
+      });
+      return this.toMainResponse(encounter, main);
+    }
+
+    if (encounter.type === 'OPD') {
+      const main = await this.prisma.opdEncounterMain.findFirst({
+        where: {
+          tenantId: this.tenantId,
+          encounterId: encounter.id,
+        },
+      });
+      return this.toMainResponse(encounter, main);
+    }
+
+    if (encounter.type === 'BB') {
+      const main = await this.prisma.bbEncounterMain.findFirst({
+        where: {
+          tenantId: this.tenantId,
+          encounterId: encounter.id,
+        },
+      });
+      return this.toMainResponse(encounter, main);
+    }
+
+    const main = await this.prisma.ipdEncounterMain.findFirst({
+      where: {
+        tenantId: this.tenantId,
+        encounterId: encounter.id,
+      },
+    });
+    return this.toMainResponse(encounter, main);
+  }
+
   async finalize(id: string) {
-    return this.transitionState(
-      id,
-      encounterStates.IN_PROGRESS,
-      encounterStates.FINALIZED,
-      'Cannot finalize before main phase starts',
-      true,
-    );
+    const tenantId = this.tenantId;
+
+    return this.prisma.$transaction(async (tx) => {
+      const encounter = await tx.encounter.findFirst({
+        where: {
+          id,
+          tenantId,
+        },
+      });
+
+      if (!encounter) {
+        throw new NotFoundException('Encounter not found');
+      }
+
+      if (encounter.status !== encounterStates.IN_PROGRESS) {
+        throw new DomainException(
+          'ENCOUNTER_STATE_INVALID',
+          'Cannot finalize before main phase starts',
+        );
+      }
+
+      if (encounter.type === 'RAD') {
+        const main = await tx.radEncounterMain.findFirst({
+          where: {
+            tenantId,
+            encounterId: encounter.id,
+          },
+        });
+
+        if (!main?.reportText || main.reportText.trim().length === 0) {
+          throw new DomainException(
+            'MAIN_INCOMPLETE',
+            'RAD main requires reportText before finalize',
+          );
+        }
+      }
+
+      if (encounter.type === 'BB') {
+        const main = await tx.bbEncounterMain.findFirst({
+          where: {
+            tenantId,
+            encounterId: encounter.id,
+          },
+        });
+
+        if (main?.crossmatchResult === BbCrossmatchResult.COMPATIBLE) {
+          const hasIssueSignal =
+            Boolean(main.componentIssued) ||
+            main.unitsIssued !== null ||
+            main.issuedAt !== null;
+
+          if (
+            hasIssueSignal &&
+            (!main.componentIssued ||
+              main.componentIssued.trim().length === 0 ||
+              !main.unitsIssued ||
+              main.unitsIssued <= 0)
+          ) {
+            throw new DomainException(
+              'MAIN_INCOMPLETE',
+              'BB main requires componentIssued and unitsIssued when issuing compatible blood',
+            );
+          }
+        }
+      }
+
+      return tx.encounter.update({
+        where: {
+          id: encounter.id,
+        },
+        data: {
+          status: encounterStates.FINALIZED,
+          endedAt: new Date(),
+        },
+      });
+    });
   }
 
   private async findEncounterById(id: string): Promise<Encounter> {
@@ -438,7 +694,7 @@ export class EncountersService {
 
   private ensureObjectPayload(payload: unknown): Record<string, unknown> {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-      throw new BadRequestException('Prep payload must be an object');
+      throw new BadRequestException('Payload must be an object');
     }
 
     return payload as Record<string, unknown>;
@@ -448,6 +704,7 @@ export class EncountersService {
     payload: Record<string, unknown>,
     allowedKeys: string[],
     encounterType: EncounterType,
+    stage: 'prep' | 'main',
   ): void {
     const allowed = new Set(allowedKeys);
     const invalidKeys = Object.keys(payload).filter((key) => !allowed.has(key));
@@ -455,7 +712,7 @@ export class EncountersService {
     if (invalidKeys.length > 0) {
       throw new DomainException(
         'INVALID_ENCOUNTER_TYPE',
-        `${encounterType} prep does not accept fields: ${invalidKeys.join(', ')}`,
+        `${encounterType} ${stage} does not accept fields: ${invalidKeys.join(', ')}`,
       );
     }
   }
@@ -472,6 +729,7 @@ export class EncountersService {
       payload,
       ['specimenType', 'collectedAt', 'collectorName', 'receivedAt'],
       'LAB',
+      'prep',
     );
 
     return {
@@ -503,6 +761,7 @@ export class EncountersService {
         'notes',
       ],
       'RAD',
+      'prep',
     );
 
     return {
@@ -540,6 +799,7 @@ export class EncountersService {
         'triageNotes',
       ],
       'OPD',
+      'prep',
     );
 
     return {
@@ -575,6 +835,7 @@ export class EncountersService {
         'urgency',
       ],
       'BB',
+      'prep',
     );
 
     return {
@@ -599,6 +860,7 @@ export class EncountersService {
       payload,
       ['admissionReason', 'ward', 'bed', 'admittingNotes'],
       'IPD',
+      'prep',
     );
 
     return {
@@ -606,6 +868,115 @@ export class EncountersService {
       ward: this.readNullableString(payload, 'ward'),
       bed: this.readNullableString(payload, 'bed'),
       admittingNotes: this.readNullableString(payload, 'admittingNotes'),
+    };
+  }
+
+  private toLabMainInput(
+    payload: Record<string, unknown>,
+  ): {
+    resultSummary?: string | null;
+    verifiedBy?: string | null;
+    verifiedAt?: Date | null;
+  } {
+    this.assertOnlyAllowedKeys(
+      payload,
+      ['resultSummary', 'verifiedBy', 'verifiedAt'],
+      'LAB',
+      'main',
+    );
+
+    return {
+      resultSummary: this.readNullableString(payload, 'resultSummary'),
+      verifiedBy: this.readNullableString(payload, 'verifiedBy'),
+      verifiedAt: this.readNullableDate(payload, 'verifiedAt'),
+    };
+  }
+
+  private toRadMainInput(
+    payload: Record<string, unknown>,
+  ): {
+    reportText?: string | null;
+    impression?: string | null;
+    radiologistName?: string | null;
+    reportedAt?: Date | null;
+  } {
+    this.assertOnlyAllowedKeys(
+      payload,
+      ['reportText', 'impression', 'radiologistName', 'reportedAt'],
+      'RAD',
+      'main',
+    );
+
+    return {
+      reportText: this.readNullableString(payload, 'reportText'),
+      impression: this.readNullableString(payload, 'impression'),
+      radiologistName: this.readNullableString(payload, 'radiologistName'),
+      reportedAt: this.readNullableDate(payload, 'reportedAt'),
+    };
+  }
+
+  private toOpdMainInput(
+    payload: Record<string, unknown>,
+  ): {
+    chiefComplaint?: string | null;
+    assessment?: string | null;
+    plan?: string | null;
+    prescriptionText?: string | null;
+  } {
+    this.assertOnlyAllowedKeys(
+      payload,
+      ['chiefComplaint', 'assessment', 'plan', 'prescriptionText'],
+      'OPD',
+      'main',
+    );
+
+    return {
+      chiefComplaint: this.readNullableString(payload, 'chiefComplaint'),
+      assessment: this.readNullableString(payload, 'assessment'),
+      plan: this.readNullableString(payload, 'plan'),
+      prescriptionText: this.readNullableString(payload, 'prescriptionText'),
+    };
+  }
+
+  private toBbMainInput(
+    payload: Record<string, unknown>,
+  ): {
+    crossmatchResult?: BbCrossmatchResult | null;
+    componentIssued?: string | null;
+    unitsIssued?: number | null;
+    issuedAt?: Date | null;
+    issueNotes?: string | null;
+  } {
+    this.assertOnlyAllowedKeys(
+      payload,
+      ['crossmatchResult', 'componentIssued', 'unitsIssued', 'issuedAt', 'issueNotes'],
+      'BB',
+      'main',
+    );
+
+    return {
+      crossmatchResult: this.readNullableBbCrossmatchResult(
+        payload,
+        'crossmatchResult',
+      ),
+      componentIssued: this.readNullableString(payload, 'componentIssued'),
+      unitsIssued: this.readNullableInteger(payload, 'unitsIssued'),
+      issuedAt: this.readNullableDate(payload, 'issuedAt'),
+      issueNotes: this.readNullableString(payload, 'issueNotes'),
+    };
+  }
+
+  private toIpdMainInput(
+    payload: Record<string, unknown>,
+  ): {
+    dailyNote?: string | null;
+    orders?: string | null;
+  } {
+    this.assertOnlyAllowedKeys(payload, ['dailyNote', 'orders'], 'IPD', 'main');
+
+    return {
+      dailyNote: this.readNullableString(payload, 'dailyNote'),
+      orders: this.readNullableString(payload, 'orders'),
     };
   }
 
@@ -730,6 +1101,28 @@ export class EncountersService {
     throw new BadRequestException(`${key} must be ROUTINE, URGENT, or null`);
   }
 
+  private readNullableBbCrossmatchResult(
+    payload: Record<string, unknown>,
+    key: string,
+  ): BbCrossmatchResult | null | undefined {
+    if (!(key in payload)) {
+      return undefined;
+    }
+
+    const value = payload[key];
+    if (value === null) {
+      return null;
+    }
+
+    if (value === 'COMPATIBLE' || value === 'INCOMPATIBLE') {
+      return value;
+    }
+
+    throw new BadRequestException(
+      `${key} must be COMPATIBLE, INCOMPATIBLE, or null`,
+    );
+  }
+
   private toPrepResponse(
     encounter: Encounter,
     prep:
@@ -816,6 +1209,85 @@ export class EncountersService {
       ward: item.ward,
       bed: item.bed,
       admittingNotes: item.admittingNotes,
+    };
+
+    return response;
+  }
+
+  private toMainResponse(
+    encounter: Encounter,
+    main:
+      | LabEncounterMain
+      | RadEncounterMain
+      | OpdEncounterMain
+      | BbEncounterMain
+      | IpdEncounterMain
+      | null,
+  ): EncounterMainResponse {
+    const type = this.toEncounterType(encounter.type);
+    const response: EncounterMainResponse = {
+      encounterId: encounter.id,
+      type,
+      updatedAt: main ? main.updatedAt.toISOString() : null,
+      labMain: null,
+      radMain: null,
+      opdMain: null,
+      bbMain: null,
+      ipdMain: null,
+    };
+
+    if (!main) {
+      return response;
+    }
+
+    if (type === 'LAB') {
+      const item = main as LabEncounterMain;
+      response.labMain = {
+        resultSummary: item.resultSummary,
+        verifiedBy: item.verifiedBy,
+        verifiedAt: item.verifiedAt ? item.verifiedAt.toISOString() : null,
+      };
+      return response;
+    }
+
+    if (type === 'RAD') {
+      const item = main as RadEncounterMain;
+      response.radMain = {
+        reportText: item.reportText,
+        impression: item.impression,
+        radiologistName: item.radiologistName,
+        reportedAt: item.reportedAt ? item.reportedAt.toISOString() : null,
+      };
+      return response;
+    }
+
+    if (type === 'OPD') {
+      const item = main as OpdEncounterMain;
+      response.opdMain = {
+        chiefComplaint: item.chiefComplaint,
+        assessment: item.assessment,
+        plan: item.plan,
+        prescriptionText: item.prescriptionText,
+      };
+      return response;
+    }
+
+    if (type === 'BB') {
+      const item = main as BbEncounterMain;
+      response.bbMain = {
+        crossmatchResult: item.crossmatchResult,
+        componentIssued: item.componentIssued,
+        unitsIssued: item.unitsIssued,
+        issuedAt: item.issuedAt ? item.issuedAt.toISOString() : null,
+        issueNotes: item.issueNotes,
+      };
+      return response;
+    }
+
+    const item = main as IpdEncounterMain;
+    response.ipdMain = {
+      dailyNote: item.dailyNote,
+      orders: item.orders,
     };
 
     return response;

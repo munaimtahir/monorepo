@@ -159,6 +159,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/encounters/{id}/main": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get encounter main data */
+        get: operations["getEncounterMain"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/encounters/{id}:start-prep": {
         parameters: {
             query?: never;
@@ -187,6 +204,23 @@ export interface paths {
         put?: never;
         /** Save encounter prep data by encounter type */
         post: operations["saveEncounterPrep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{id}:save-main": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Save encounter main data by encounter type */
+        post: operations["saveEncounterMain"];
         delete?: never;
         options?: never;
         head?: never;
@@ -360,6 +394,8 @@ export interface components {
         };
         /** @enum {string} */
         BbUrgency: "ROUTINE" | "URGENT";
+        /** @enum {string} */
+        BbCrossmatchResult: "COMPATIBLE" | "INCOMPATIBLE";
         BbPrepSaveRequest: {
             /** Format: date-time */
             sampleReceivedAt?: string | null;
@@ -375,6 +411,37 @@ export interface components {
             bed?: string | null;
             admittingNotes?: string | null;
         };
+        LabMainSaveRequest: {
+            resultSummary?: string | null;
+            verifiedBy?: string | null;
+            /** Format: date-time */
+            verifiedAt?: string | null;
+        };
+        RadMainSaveRequest: {
+            reportText?: string | null;
+            impression?: string | null;
+            radiologistName?: string | null;
+            /** Format: date-time */
+            reportedAt?: string | null;
+        };
+        OpdMainSaveRequest: {
+            chiefComplaint?: string | null;
+            assessment?: string | null;
+            plan?: string | null;
+            prescriptionText?: string | null;
+        };
+        BbMainSaveRequest: {
+            crossmatchResult?: components["schemas"]["BbCrossmatchResult"] | null;
+            componentIssued?: string | null;
+            unitsIssued?: number | null;
+            /** Format: date-time */
+            issuedAt?: string | null;
+            issueNotes?: string | null;
+        };
+        IpdMainSaveRequest: {
+            dailyNote?: string | null;
+            orders?: string | null;
+        };
         EncounterPrepResponse: {
             encounterId: string;
             /** @enum {string} */
@@ -386,6 +453,18 @@ export interface components {
             opdPrep: components["schemas"]["OpdPrepSaveRequest"] | null;
             bbPrep: components["schemas"]["BbPrepSaveRequest"] | null;
             ipdPrep: components["schemas"]["IpdPrepSaveRequest"] | null;
+        };
+        EncounterMainResponse: {
+            encounterId: string;
+            /** @enum {string} */
+            type: "LAB" | "RAD" | "OPD" | "BB" | "IPD";
+            /** Format: date-time */
+            updatedAt: string | null;
+            labMain: components["schemas"]["LabMainSaveRequest"] | null;
+            radMain: components["schemas"]["RadMainSaveRequest"] | null;
+            opdMain: components["schemas"]["OpdMainSaveRequest"] | null;
+            bbMain: components["schemas"]["BbMainSaveRequest"] | null;
+            ipdMain: components["schemas"]["IpdMainSaveRequest"] | null;
         };
         /** @enum {string} */
         DocumentType: "ENCOUNTER_SUMMARY";
@@ -809,6 +888,33 @@ export interface operations {
             500: components["responses"]["UnexpectedError"];
         };
     };
+    getEncounterMain: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description DEV ONLY. Ignored in production. For local testing when hostname is localhost. */
+                "x-tenant-id"?: components["parameters"]["TenantIdHeader"];
+            };
+            path: {
+                id: components["parameters"]["IdPathParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Encounter main data */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EncounterMainResponse"];
+                };
+            };
+            404: components["responses"]["NotFoundError"];
+            500: components["responses"]["UnexpectedError"];
+        };
+    };
     startEncounterPrep: {
         parameters: {
             query?: never;
@@ -862,6 +968,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EncounterPrepResponse"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            404: components["responses"]["NotFoundError"];
+            409: components["responses"]["DomainError"];
+            500: components["responses"]["UnexpectedError"];
+        };
+    };
+    saveEncounterMain: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description DEV ONLY. Ignored in production. For local testing when hostname is localhost. */
+                "x-tenant-id"?: components["parameters"]["TenantIdHeader"];
+            };
+            path: {
+                id: components["parameters"]["IdPathParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabMainSaveRequest"] | components["schemas"]["RadMainSaveRequest"] | components["schemas"]["OpdMainSaveRequest"] | components["schemas"]["BbMainSaveRequest"] | components["schemas"]["IpdMainSaveRequest"];
+            };
+        };
+        responses: {
+            /** @description Encounter main upserted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EncounterMainResponse"];
                 };
             };
             400: components["responses"]["ValidationError"];

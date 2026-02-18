@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { DocumentsService } from '../documents/documents.service';
+import type { EncounterMainSaveRequest } from './encounter-main.types';
 import type { EncounterPrepSaveRequest } from './encounter-prep.types';
 import { CreateEncounterDto } from './dto/create-encounter.dto';
 import { EncountersService } from './encounters.service';
@@ -48,6 +49,11 @@ export class EncountersController {
     return this.service.getPrep(id);
   }
 
+  @Get(':id/main')
+  getMain(@Param('id') id: string) {
+    return this.service.getMain(id);
+  }
+
   @Post(':id\\:start-prep')
   @HttpCode(HttpStatus.OK)
   startPrep(@Param('id') id: string) {
@@ -58,6 +64,12 @@ export class EncountersController {
   @HttpCode(HttpStatus.OK)
   savePrep(@Param('id') id: string, @Body() payload: EncounterPrepSaveRequest) {
     return this.service.savePrep(id, payload);
+  }
+
+  @Post(':id\\:save-main')
+  @HttpCode(HttpStatus.OK)
+  saveMain(@Param('id') id: string, @Body() payload: EncounterMainSaveRequest) {
+    return this.service.saveMain(id, payload);
   }
 
   @Post(':id\\:start-main')

@@ -22,6 +22,11 @@ model Tenant {
   opdEncounterPreps  OpdEncounterPrep[]
   bbEncounterPreps   BbEncounterPrep[]
   ipdEncounterPreps  IpdEncounterPrep[]
+  labEncounterMains  LabEncounterMain[]
+  radEncounterMains  RadEncounterMain[]
+  opdEncounterMains  OpdEncounterMain[]
+  bbEncounterMains   BbEncounterMain[]
+  ipdEncounterMains  IpdEncounterMain[]
   patientSequences   PatientSequence[]
   encounterSequences EncounterSequence[]
   documents          Document[]
@@ -158,6 +163,11 @@ model Encounter {
   opdPrep   OpdEncounterPrep?
   bbPrep    BbEncounterPrep?
   ipdPrep   IpdEncounterPrep?
+  labMain   LabEncounterMain?
+  radMain   RadEncounterMain?
+  opdMain   OpdEncounterMain?
+  bbMain    BbEncounterMain?
+  ipdMain   IpdEncounterMain?
 
   @@unique([tenantId, encounterCode])
   @@index([tenantId, patientId, createdAt])
@@ -251,6 +261,89 @@ model IpdEncounterPrep {
   admittingNotes String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@unique([tenantId, encounterId])
+}
+
+model LabEncounterMain {
+  id            String    @id @default(uuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  encounterId   String    @unique
+  encounter     Encounter @relation(fields: [encounterId], references: [id])
+  resultSummary String?
+  verifiedBy    String?
+  verifiedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@unique([tenantId, encounterId])
+}
+
+model RadEncounterMain {
+  id             String    @id @default(uuid())
+  tenantId       String
+  tenant         Tenant    @relation(fields: [tenantId], references: [id])
+  encounterId    String    @unique
+  encounter      Encounter @relation(fields: [encounterId], references: [id])
+  reportText     String?
+  impression     String?
+  radiologistName String?
+  reportedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@unique([tenantId, encounterId])
+}
+
+model OpdEncounterMain {
+  id               String    @id @default(uuid())
+  tenantId         String
+  tenant           Tenant    @relation(fields: [tenantId], references: [id])
+  encounterId      String    @unique
+  encounter        Encounter @relation(fields: [encounterId], references: [id])
+  chiefComplaint   String?
+  assessment       String?
+  plan             String?
+  prescriptionText String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([tenantId])
+  @@unique([tenantId, encounterId])
+}
+
+model BbEncounterMain {
+  id               String             @id @default(uuid())
+  tenantId         String
+  tenant           Tenant             @relation(fields: [tenantId], references: [id])
+  encounterId      String             @unique
+  encounter        Encounter          @relation(fields: [encounterId], references: [id])
+  crossmatchResult BbCrossmatchResult?
+  componentIssued  String?
+  unitsIssued      Int?
+  issuedAt         DateTime?
+  issueNotes       String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([tenantId])
+  @@unique([tenantId, encounterId])
+}
+
+model IpdEncounterMain {
+  id          String    @id @default(uuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  encounterId String    @unique
+  encounter   Encounter @relation(fields: [encounterId], references: [id])
+  dailyNote   String?
+  orders      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([tenantId])
   @@unique([tenantId, encounterId])
@@ -362,4 +455,9 @@ enum StorageBackend {
 enum BbUrgency {
   ROUTINE
   URGENT
+}
+
+enum BbCrossmatchResult {
+  COMPATIBLE
+  INCOMPATIBLE
 }

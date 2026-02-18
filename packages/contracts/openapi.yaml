@@ -267,6 +267,26 @@ paths:
           $ref: '#/components/responses/NotFoundError'
         '500':
           $ref: '#/components/responses/UnexpectedError'
+  /encounters/{id}/main:
+    get:
+      summary: Get encounter main data
+      operationId: getEncounterMain
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '200':
+          description: Encounter main data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EncounterMainResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
   /encounters/{id}:start-prep:
     post:
       summary: Start encounter preparation
@@ -316,6 +336,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EncounterPrepResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/DomainError'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /encounters/{id}:save-main:
+    post:
+      summary: Save encounter main data by encounter type
+      operationId: saveEncounterMain
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/LabMainSaveRequest'
+                - $ref: '#/components/schemas/RadMainSaveRequest'
+                - $ref: '#/components/schemas/OpdMainSaveRequest'
+                - $ref: '#/components/schemas/BbMainSaveRequest'
+                - $ref: '#/components/schemas/IpdMainSaveRequest'
+      responses:
+        '200':
+          description: Encounter main upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EncounterMainResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
         '404':
@@ -669,6 +724,9 @@ components:
     BbUrgency:
       type: string
       enum: [ROUTINE, URGENT]
+    BbCrossmatchResult:
+      type: string
+      enum: [COMPATIBLE, INCOMPATIBLE]
     BbPrepSaveRequest:
       type: object
       additionalProperties: false
@@ -707,6 +765,84 @@ components:
           type: string
           nullable: true
         admittingNotes:
+          type: string
+          nullable: true
+    LabMainSaveRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        resultSummary:
+          type: string
+          nullable: true
+        verifiedBy:
+          type: string
+          nullable: true
+        verifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+    RadMainSaveRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reportText:
+          type: string
+          nullable: true
+        impression:
+          type: string
+          nullable: true
+        radiologistName:
+          type: string
+          nullable: true
+        reportedAt:
+          type: string
+          format: date-time
+          nullable: true
+    OpdMainSaveRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        chiefComplaint:
+          type: string
+          nullable: true
+        assessment:
+          type: string
+          nullable: true
+        plan:
+          type: string
+          nullable: true
+        prescriptionText:
+          type: string
+          nullable: true
+    BbMainSaveRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        crossmatchResult:
+          allOf:
+            - $ref: '#/components/schemas/BbCrossmatchResult'
+          nullable: true
+        componentIssued:
+          type: string
+          nullable: true
+        unitsIssued:
+          type: integer
+          nullable: true
+        issuedAt:
+          type: string
+          format: date-time
+          nullable: true
+        issueNotes:
+          type: string
+          nullable: true
+    IpdMainSaveRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        dailyNote:
+          type: string
+          nullable: true
+        orders:
           type: string
           nullable: true
     EncounterPrepResponse:
@@ -749,6 +885,47 @@ components:
         ipdPrep:
           allOf:
             - $ref: '#/components/schemas/IpdPrepSaveRequest'
+          nullable: true
+    EncounterMainResponse:
+      type: object
+      required:
+        - encounterId
+        - type
+        - updatedAt
+        - labMain
+        - radMain
+        - opdMain
+        - bbMain
+        - ipdMain
+      properties:
+        encounterId:
+          type: string
+        type:
+          type: string
+          enum: [LAB, RAD, OPD, BB, IPD]
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+        labMain:
+          allOf:
+            - $ref: '#/components/schemas/LabMainSaveRequest'
+          nullable: true
+        radMain:
+          allOf:
+            - $ref: '#/components/schemas/RadMainSaveRequest'
+          nullable: true
+        opdMain:
+          allOf:
+            - $ref: '#/components/schemas/OpdMainSaveRequest'
+          nullable: true
+        bbMain:
+          allOf:
+            - $ref: '#/components/schemas/BbMainSaveRequest'
+          nullable: true
+        ipdMain:
+          allOf:
+            - $ref: '#/components/schemas/IpdMainSaveRequest'
           nullable: true
     DocumentType:
       type: string

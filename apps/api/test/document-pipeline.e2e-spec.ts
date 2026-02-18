@@ -76,11 +76,24 @@ type LabPrepRecord = {
   updatedAt: Date;
 };
 
+type RadMainRecord = {
+  id: string;
+  tenantId: string;
+  encounterId: string;
+  reportText: string | null;
+  impression: string | null;
+  radiologistName: string | null;
+  reportedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 type MemoryState = {
   patients: PatientRecord[];
   encounters: EncounterRecord[];
   documents: DocumentRecord[];
   labPreps: LabPrepRecord[];
+  radMains: RadMainRecord[];
   patientCounters: Map<string, number>;
   encounterCounters: Map<string, number>;
   tenantDomains: Map<string, string>;
@@ -667,6 +680,83 @@ function createPrismaMock(state: MemoryState) {
         },
       ),
     },
+    radEncounterMain: {
+      upsert: jest.fn(
+        async ({
+          where,
+          create,
+          update,
+        }: {
+          where: { tenantId_encounterId: { tenantId: string; encounterId: string } };
+          create: {
+            tenantId: string;
+            encounterId: string;
+            reportText?: string | null;
+            impression?: string | null;
+            radiologistName?: string | null;
+            reportedAt?: Date | null;
+          };
+          update: {
+            reportText?: string | null;
+            impression?: string | null;
+            radiologistName?: string | null;
+            reportedAt?: Date | null;
+          };
+        }) => {
+          const existing = state.radMains.find(
+            (item) =>
+              item.tenantId === where.tenantId_encounterId.tenantId &&
+              item.encounterId === where.tenantId_encounterId.encounterId,
+          );
+
+          if (existing) {
+            if (update.reportText !== undefined) {
+              existing.reportText = update.reportText;
+            }
+            if (update.impression !== undefined) {
+              existing.impression = update.impression;
+            }
+            if (update.radiologistName !== undefined) {
+              existing.radiologistName = update.radiologistName;
+            }
+            if (update.reportedAt !== undefined) {
+              existing.reportedAt = update.reportedAt;
+            }
+            existing.updatedAt = new Date();
+            return existing;
+          }
+
+          const record: RadMainRecord = {
+            id: makeId(4000 + state.radMains.length + 1),
+            tenantId: create.tenantId,
+            encounterId: create.encounterId,
+            reportText: create.reportText ?? null,
+            impression: create.impression ?? null,
+            radiologistName: create.radiologistName ?? null,
+            reportedAt: create.reportedAt ?? null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          state.radMains.push(record);
+          return record;
+        },
+      ),
+      findFirst: jest.fn(
+        async ({
+          where,
+        }: {
+          where: { tenantId: string; encounterId: string };
+        }) => {
+          return (
+            state.radMains.find(
+              (item) =>
+                item.tenantId === where.tenantId &&
+                item.encounterId === where.encounterId,
+            ) ?? null
+          );
+        },
+      ),
+    },
     $transaction: jest.fn(async (operation: (tx: Record<string, unknown>) => Promise<unknown>) =>
       operation(prismaMock),
     ),
@@ -702,6 +792,7 @@ describe('Document pipeline (e2e)', () => {
     encounters: [],
     documents: [],
     labPreps: [],
+    radMains: [],
     patientCounters: new Map<string, number>(),
     encounterCounters: new Map<string, number>(),
     tenantDomains: new Map<string, string>([
@@ -888,6 +979,122 @@ describe('Document pipeline (e2e)', () => {
       });
   });
 
+  it('rejects save-main while encounter is still PREP', async () => {
+    const patientResponse = await request(app.getHttpServer())
+      .post('/patients')
+      .set('Host', 'tenant-a.test')
+      .send({
+        name: 'Prep State Guard',
+      })
+      .expect(201);
+
+    const encounterResponse = await request(app.getHttpServer())
+      .post('/encounters')
+      .set('Host', 'tenant-a.test')
+      .send({
+        patientId: patientResponse.body.id,
+        type: 'RAD',
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/encounters/${encounterResponse.body.id}:start-prep`)
+      .set('Host', 'tenant-a.test')
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/encounters/${encounterResponse.body.id}:save-main`)
+      .set('Host', 'tenant-a.test')
+      .send({
+        reportText: 'Should not be accepted in PREP',
+      })
+      .expect(409)
+      .expect((response) => {
+        expect(response.body.error.type).toBe('domain_error');
+        expect(response.body.error.code).toBe('INVALID_STATE');
+      });
+  });
+
+  it('supports RAD main flow, finalize, and document download', async () => {
+    const patientResponse = await request(app.getHttpServer())
+      .post('/patients')
+      .set('Host', 'tenant-a.test')
+      .send({
+        name: 'Rad Main Flow',
+      })
+      .expect(201);
+
+    const encounterResponse = await request(app.getHttpServer())
+      .post('/encounters')
+      .set('Host', 'tenant-a.test')
+      .send({
+        patientId: patientResponse.body.id,
+        type: 'RAD',
+      })
+      .expect(201);
+
+    const radEncounterId = encounterResponse.body.id as string;
+
+    await request(app.getHttpServer())
+      .post(`/encounters/${radEncounterId}:start-prep`)
+      .set('Host', 'tenant-a.test')
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/encounters/${radEncounterId}:start-main`)
+      .set('Host', 'tenant-a.test')
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/encounters/${radEncounterId}:save-main`)
+      .set('Host', 'tenant-a.test')
+      .send({
+        reportText: 'No acute cardiopulmonary abnormality.',
+        impression: 'Stable chest radiograph.',
+        radiologistName: 'Dr. Ray',
+      })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.type).toBe('RAD');
+        expect(response.body.radMain.reportText).toContain('No acute');
+      });
+
+    await request(app.getHttpServer())
+      .get(`/encounters/${radEncounterId}/main`)
+      .set('Host', 'tenant-a.test')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.type).toBe('RAD');
+        expect(response.body.radMain.reportText).toContain('No acute');
+      });
+
+    await request(app.getHttpServer())
+      .post(`/encounters/${radEncounterId}:finalize`)
+      .set('Host', 'tenant-a.test')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.status).toBe('FINALIZED');
+      });
+
+    const documentResponse = await request(app.getHttpServer())
+      .post(`/encounters/${radEncounterId}:document`)
+      .set('Host', 'tenant-a.test')
+      .expect(200);
+
+    expect(documentResponse.body.status).toBe('RENDERED');
+
+    await request(app.getHttpServer())
+      .get(`/documents/${documentResponse.body.id}/file`)
+      .set('Host', 'tenant-a.test')
+      .buffer(true)
+      .parse(binaryParser)
+      .expect(200)
+      .expect((response) => {
+        expect(response.headers['content-type']).toContain('application/pdf');
+        expect((response.body as Buffer).length).toBeGreaterThan(50);
+      });
+  });
+
   it('blocks cross-tenant document reads', async () => {
     expect(createdDocumentId).toBeDefined();
 
@@ -909,6 +1116,14 @@ describe('Document pipeline (e2e)', () => {
 
     await request(app.getHttpServer())
       .post(`/encounters/${createdEncounterId}:document`)
+      .set('Host', 'tenant-b.test')
+      .expect(404)
+      .expect((response) => {
+        expect(response.body.error.type).toBe('not_found');
+      });
+
+    await request(app.getHttpServer())
+      .get(`/encounters/${createdEncounterId}/main`)
       .set('Host', 'tenant-b.test')
       .expect(404)
       .expect((response) => {
