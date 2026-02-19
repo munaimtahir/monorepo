@@ -11,6 +11,7 @@ export const operatorKeys = {
   encounterList: (params?: { page?: number; type?: string; status?: string }) =>
     [...operatorKeys.encounters(), 'list', params] as const,
   encounter: (id: string) => [...operatorKeys.encounters(), id] as const,
+  orderQueue: () => [...operatorKeys.all, 'lab', 'order-queue'] as const,
   resultEntryQueue: () => [...operatorKeys.all, 'lab', 'result-entry-queue'] as const,
   verificationQueue: () => [...operatorKeys.all, 'lab', 'verification-queue'] as const,
 };

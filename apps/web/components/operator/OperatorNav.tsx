@@ -7,6 +7,7 @@ import { operatorRoutes } from '@/lib/operator/routes';
 
 const navItems = [
   { label: 'Register', href: operatorRoutes.register },
+  { label: 'Orders', href: operatorRoutes.orders },
   { label: 'Samples', href: operatorRoutes.samples },
   { label: 'Result Entry', href: operatorRoutes.resultsEntry },
   { label: 'Verify', href: operatorRoutes.verify },

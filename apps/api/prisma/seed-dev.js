@@ -7,12 +7,20 @@ const defaults = {
   tenantName: 'Vexel Development Tenant',
   tenantStatus: 'active',
   domains: ['vexel.alshifalab.pk', 'tenant-a.test'],
-  adminEmail: 'admin@vexel.dev',
+  adminEmail: 'admin@vexel.com',
   adminPassword: 'Admin@123!',
   adminName: 'Development Admin',
   adminStatus: 'active',
   adminRoleName: 'ADMIN',
 };
+
+const adminPermissionKeys = [
+  'LAB_CATALOG_WRITE',
+  'LAB_ORDER_WRITE',
+  'LAB_RESULTS_WRITE',
+  'LAB_RESULTS_VERIFY',
+  'LAB_REPORT_PUBLISH',
+];
 
 function parseDomains(value) {
   const source = (value ?? '').trim();
@@ -118,6 +126,34 @@ async function main() {
     },
   });
 
+  const permissions = await Promise.all(
+    adminPermissionKeys.map((key) =>
+      prisma.permission.upsert({
+        where: { key },
+        update: {},
+        create: { key },
+      }),
+    ),
+  );
+
+  await Promise.all(
+    permissions.map((permission) =>
+      prisma.rolePermission.upsert({
+        where: {
+          roleId_permissionId: {
+            roleId: role.id,
+            permissionId: permission.id,
+          },
+        },
+        update: {},
+        create: {
+          roleId: role.id,
+          permissionId: permission.id,
+        },
+      }),
+    ),
+  );
+
   console.log(
     JSON.stringify(
       {
@@ -128,6 +164,7 @@ async function main() {
         adminPassword,
         adminUserId: user.id,
         adminRoleName: role.name,
+        adminPermissions: adminPermissionKeys,
       },
       null,
       2,

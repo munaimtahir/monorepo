@@ -865,6 +865,7 @@ export default function EncounterDetailPage() {
     encounterStatus === 'CREATED' ||
     encounterStatus === 'PREP' ||
     encounterStatus === 'IN_PROGRESS';
+  const canStartLabPreparation = encounter?.type !== 'LAB' || hasOrderedLabTests;
   const prepFieldErrorFor = (field: string): string | null => {
     const nested = prepFieldErrors[`prep.${field}`];
     if (nested && nested.length > 0) {
@@ -1571,11 +1572,16 @@ export default function EncounterDetailPage() {
               onClick={() => {
                 void startPrep();
               }}
-              disabled={isStartingPrep}
+              disabled={isStartingPrep || !canStartLabPreparation}
               className="rounded bg-gray-900 px-4 py-2 text-white hover:bg-gray-700 disabled:opacity-60"
             >
               {isStartingPrep ? 'Starting...' : 'Start preparation'}
             </button>
+            {encounter.type === 'LAB' && !hasOrderedLabTests && (
+              <p className="mt-2 text-sm text-amber-700">
+                Add at least one ordered test before starting preparation.
+              </p>
+            )}
           </div>
         )}
 
@@ -1663,7 +1669,7 @@ export default function EncounterDetailPage() {
                   )}
                 </div>
                 <p className="text-xs text-gray-500">
-                  `sample_collected_at` is required before ordering LAB tests.
+                  Complete sample collection here after tests are added to the order.
                 </p>
               </>
             )}

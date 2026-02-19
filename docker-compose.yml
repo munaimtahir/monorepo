@@ -28,7 +28,7 @@ services:
       DEV_ADMIN_TENANT_NAME: ${DEV_ADMIN_TENANT_NAME:-Vexel Development Tenant}
       DEV_ADMIN_TENANT_STATUS: ${DEV_ADMIN_TENANT_STATUS:-active}
       DEV_ADMIN_DOMAINS: ${DEV_ADMIN_DOMAINS:-vexel.alshifalab.pk,tenant-a.test}
-      DEV_ADMIN_EMAIL: ${DEV_ADMIN_EMAIL:-admin@vexel.dev}
+      DEV_ADMIN_EMAIL: ${DEV_ADMIN_EMAIL:-admin@vexel.com}
       DEV_ADMIN_PASSWORD: ${DEV_ADMIN_PASSWORD:-Admin@123!}
       DEV_ADMIN_NAME: ${DEV_ADMIN_NAME:-Development Admin}
       DEV_ADMIN_USER_STATUS: ${DEV_ADMIN_USER_STATUS:-active}

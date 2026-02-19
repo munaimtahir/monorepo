@@ -67,7 +67,7 @@ export default function OperatorSamplesPage() {
     <div>
       <h1 className="text-2xl font-bold mb-4 text-[var(--text)]">Samples</h1>
       <p className="text-[var(--muted)] mb-4">
-        Phlebotomy stage. In this single-branch setup, collected and received are marked together.
+        Phlebotomy stage after order creation. In this single-branch setup, collected and received are marked together.
       </p>
       <WorklistTable
         rows={rows ?? []}
