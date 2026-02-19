@@ -9,6 +9,10 @@ import { DocumentsModule } from './documents/documents.module';
 import { MeModule } from './me/me.module';
 import { ClsModule } from 'nestjs-cls';
 import { EncountersModule } from './encounters/encounters.module';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { RequestTraceInterceptor } from './common/observability/request-trace.interceptor';
+import { LabCatalogModule } from './lab-catalog/lab-catalog.module';
+import { LabWorkflowModule } from './lab-workflow/lab-workflow.module';
 
 @Module({
   imports: [
@@ -22,9 +26,17 @@ import { EncountersModule } from './encounters/encounters.module';
     PatientsModule,
     EncountersModule,
     DocumentsModule,
+    LabCatalogModule,
+    LabWorkflowModule,
     MeModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: RequestTraceInterceptor,
+    },
+  ],
 })
 export class AppModule {}

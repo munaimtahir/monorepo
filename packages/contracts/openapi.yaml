@@ -247,6 +247,116 @@ paths:
           $ref: '#/components/responses/NotFoundError'
         '500':
           $ref: '#/components/responses/UnexpectedError'
+  /lab/tests:
+    post:
+      summary: Create LAB test definition
+      operationId: createLabTest
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTestRequest'
+      responses:
+        '201':
+          description: LAB test created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabTestDefinition'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '409':
+          $ref: '#/components/responses/DomainError'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+    get:
+      summary: List LAB test definitions
+      operationId: listLabTests
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+      responses:
+        '200':
+          description: LAB test list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListLabTestsResponse'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /lab/tests/{testId}:
+    get:
+      summary: Get LAB test definition by id
+      operationId: getLabTestById
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/LabTestIdPathParam'
+      responses:
+        '200':
+          description: LAB test definition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabTestDefinition'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /lab/tests/{testId}/parameters:
+    post:
+      summary: Add parameter to LAB test definition
+      operationId: addLabTestParameter
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/LabTestIdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddParameterRequest'
+      responses:
+        '201':
+          description: LAB parameter created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabTestParameter'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+    get:
+      summary: List parameters for LAB test definition
+      operationId: listLabTestParameters
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/LabTestIdPathParam'
+      responses:
+        '200':
+          description: LAB parameters list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListLabTestParametersResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
   /encounters/{id}/prep:
     get:
       summary: Get encounter prep data
@@ -453,6 +563,140 @@ paths:
           $ref: '#/components/responses/DomainError'
         '500':
           $ref: '#/components/responses/UnexpectedError'
+  /encounters/{id}:lab-add-test:
+    post:
+      summary: Add a catalog test to LAB encounter
+      operationId: addLabTestToEncounter
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddTestToEncounterRequest'
+      responses:
+        '200':
+          description: LAB order item created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabOrderedTest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/DomainError'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /encounters/{id}/lab-tests:
+    get:
+      summary: List ordered LAB tests with parameters and results for encounter
+      operationId: listEncounterLabTests
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '200':
+          description: Ordered LAB tests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEncounterLabTestsResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/DomainError'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /encounters/{id}:lab-enter-results:
+    post:
+      summary: Enter structured results for LAB encounter order item
+      operationId: enterEncounterLabResults
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnterLabResultsRequest'
+      responses:
+        '200':
+          description: Results entered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabOrderedTest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/DomainError'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /encounters/{id}:lab-verify:
+    post:
+      summary: Verify LAB order item results
+      operationId: verifyEncounterLabResults
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyLabResultsRequest'
+      responses:
+        '200':
+          description: LAB order item verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabOrderedTest'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/DomainError'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
+  /encounters/{id}:lab-publish:
+    post:
+      summary: Publish LAB report (PDF-only) for finalized LAB encounter
+      operationId: publishEncounterLabReport
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '200':
+          description: LAB report queued or rendered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          $ref: '#/components/responses/DomainError'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
   /documents/{documentId}:
     get:
       summary: Get document metadata by id
@@ -523,6 +767,13 @@ components:
       required: true
       schema:
         type: string
+    LabTestIdPathParam:
+      name: testId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
   responses:
     ValidationError:
       description: Structured validation error
@@ -661,6 +912,275 @@ components:
             $ref: '#/components/schemas/Encounter'
         total:
           type: integer
+    LabTestDefinition:
+      type: object
+      required:
+        - id
+        - code
+        - name
+        - department
+        - active
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        department:
+          type: string
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    LabTestParameter:
+      type: object
+      required:
+        - id
+        - testId
+        - name
+        - displayOrder
+        - active
+      properties:
+        id:
+          type: string
+          format: uuid
+        testId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        unit:
+          type: string
+          nullable: true
+        refLow:
+          type: number
+          nullable: true
+        refHigh:
+          type: number
+          nullable: true
+        refText:
+          type: string
+          nullable: true
+        displayOrder:
+          type: integer
+        active:
+          type: boolean
+    LabOrderItemStatus:
+      type: string
+      enum: [ORDERED, RESULTS_ENTERED, VERIFIED]
+    LabResultFlag:
+      type: string
+      enum: [LOW, HIGH, NORMAL, ABNORMAL, UNKNOWN]
+    LabOrderItem:
+      type: object
+      required:
+        - id
+        - encounterId
+        - testId
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        encounterId:
+          type: string
+          format: uuid
+        testId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/LabOrderItemStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    LabResultItem:
+      type: object
+      required:
+        - id
+        - orderItemId
+        - parameterId
+        - value
+        - flag
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderItemId:
+          type: string
+          format: uuid
+        parameterId:
+          type: string
+          format: uuid
+        value:
+          type: string
+        valueNumeric:
+          type: number
+          nullable: true
+        flag:
+          $ref: '#/components/schemas/LabResultFlag'
+        enteredBy:
+          type: string
+          nullable: true
+        enteredAt:
+          type: string
+          format: date-time
+          nullable: true
+        verifiedBy:
+          type: string
+          nullable: true
+        verifiedAt:
+          type: string
+          format: date-time
+          nullable: true
+    LabOrderedTest:
+      type: object
+      required:
+        - orderItem
+        - test
+        - parameters
+        - results
+      properties:
+        orderItem:
+          $ref: '#/components/schemas/LabOrderItem'
+        test:
+          $ref: '#/components/schemas/LabTestDefinition'
+        parameters:
+          type: array
+          items:
+            $ref: '#/components/schemas/LabTestParameter'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/LabResultItem'
+    ListLabTestsResponse:
+      type: object
+      required:
+        - data
+        - total
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/LabTestDefinition'
+        total:
+          type: integer
+    ListLabTestParametersResponse:
+      type: object
+      required:
+        - data
+        - total
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/LabTestParameter'
+        total:
+          type: integer
+    ListEncounterLabTestsResponse:
+      type: object
+      required:
+        - data
+        - total
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/LabOrderedTest'
+        total:
+          type: integer
+    CreateTestRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - name
+        - department
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        department:
+          type: string
+        active:
+          type: boolean
+    AddParameterRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        unit:
+          type: string
+        refLow:
+          type: number
+        refHigh:
+          type: number
+        refText:
+          type: string
+        displayOrder:
+          type: integer
+        active:
+          type: boolean
+    AddTestToEncounterRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - testId
+      properties:
+        testId:
+          type: string
+          format: uuid
+    EnterLabResultValueInput:
+      type: object
+      additionalProperties: false
+      required:
+        - parameterId
+        - value
+      properties:
+        parameterId:
+          type: string
+          format: uuid
+        value:
+          type: string
+    EnterLabResultsRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - orderItemId
+        - results
+      properties:
+        orderItemId:
+          type: string
+          format: uuid
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnterLabResultValueInput'
+    VerifyLabResultsRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - orderItemId
+      properties:
+        orderItemId:
+          type: string
+          format: uuid
     LabPrepSaveRequest:
       type: object
       additionalProperties: false

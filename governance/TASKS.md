@@ -19,12 +19,12 @@ This is the canonical checklist.
 - [ ] Tenant branding config storage
 
 ## Phase 2 — LIMS MVP
-- [ ] Catalog engine (tests/parameters/panels/ranges)
-- [ ] Order creation command
+- [x] Catalog engine (tests/parameters/panels/ranges)
+- [x] Order creation command
 - [ ] Record payment command
-- [ ] Result entry command + UI
-- [ ] Verification command + UI
-- [ ] Publish report command
+- [x] Result entry command + UI
+- [x] Verification command + UI
+- [x] Publish report command
 
 ## Phase 3 — PDF Service
 - [ ] Implement /render in QuestPDF service
@@ -40,3 +40,6 @@ This is the canonical checklist.
 - [ ] Tenant provisioning UI
 - [ ] Plan presets + overrides
 - [ ] Admin monitoring (jobs, pdf failures)
+
+## Audit evidence
+- [x] 2026-02-19: workflow audit artifacts generated under `_audit_evidence/workflow_audit/`

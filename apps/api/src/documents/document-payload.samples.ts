@@ -15,12 +15,27 @@ export const DOCUMENT_PAYLOAD_SAMPLES: Record<RequestedDocumentType, JsonRecord>
     },
   },
   LAB_REPORT_V1: {
-    prep: {
-      specimenType: 'Blood',
-    },
-    main: {
-      resultSummary: 'Hemoglobin in expected range.',
-      verifiedBy: 'Lab Specialist',
+    lab: {
+      tests: [
+        {
+          testCode: 'ALB',
+          testName: 'Serum Albumin',
+          department: 'Biochemistry',
+          parameters: [
+            {
+              name: 'Albumin',
+              value: '4.5',
+              unit: 'g/dL',
+              flag: 'NORMAL',
+              reference: '3.5-5.0',
+            },
+          ],
+        },
+      ],
+      verifiedSummary: {
+        verifiedBy: 'lab-tech-1',
+        verifiedAt: '2026-02-19T10:20:00.000Z',
+      },
     },
   },
   OPD_SUMMARY_V1: {
