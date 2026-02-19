@@ -33,7 +33,7 @@ export default function UiPreviewPage() {
             <div className="px-4 py-4">
               <div className="text-xs font-semibold text-slate-500">Navigation</div>
               <nav className="mt-3 space-y-1 text-sm">
-                {[
+                {([
                   ["Dashboard", true],
                   ["Patients", false],
                   ["Orders", false],
@@ -41,7 +41,7 @@ export default function UiPreviewPage() {
                   ["Verification", false],
                   ["Documents", false],
                   ["Admin", false],
-                ].map(([label, active]) => (
+                ] as Array<[string, boolean]>).map(([label, active]) => (
                   <a
                     key={label}
                     href="#"
@@ -276,4 +276,3 @@ function ActionCard({
     </div>
   );
 }
-

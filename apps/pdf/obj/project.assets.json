@@ -451,11 +451,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/home/munaim/srv/apps/vexel-health/apps/pdf/PdfService.csproj",
+      "projectUniqueName": "/home/munaim/srv/apps/vexel-health-phase4c/apps/pdf/PdfService.csproj",
       "projectName": "PdfService",
-      "projectPath": "/home/munaim/srv/apps/vexel-health/apps/pdf/PdfService.csproj",
+      "projectPath": "/home/munaim/srv/apps/vexel-health-phase4c/apps/pdf/PdfService.csproj",
       "packagesPath": "/home/munaim/.nuget/packages/",
-      "outputPath": "/home/munaim/srv/apps/vexel-health/apps/pdf/obj/",
+      "outputPath": "/home/munaim/srv/apps/vexel-health-phase4c/apps/pdf/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/home/munaim/.nuget/NuGet/NuGet.Config"

@@ -613,6 +613,9 @@ function createPrismaMock(state: MemoryState) {
           if (where.encounterId && item.encounterId !== where.encounterId) {
             return false;
           }
+          if (where.status?.not && item.status === where.status.not) {
+            return false;
+          }
           return true;
         });
 

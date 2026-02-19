@@ -467,6 +467,46 @@ function createPrismaMock(state: MemoryState) {
         },
       ),
       findFirst: jest.fn(async () => null),
+      findMany: jest.fn(
+        async ({
+          where,
+          select,
+        }: {
+          where: {
+            tenantId: string;
+            encounterId?: string;
+            status?: { not?: string };
+          };
+          select?: { id?: boolean; status?: boolean };
+        }) => {
+          const scoped = state.encounters
+            .filter(
+              (item) =>
+                item.tenantId === where.tenantId &&
+                item.id === where.encounterId &&
+                item.type === 'LAB',
+            )
+            .map((item) => ({
+              id: `lab-order-${item.id}`,
+              status: 'VERIFIED',
+            }))
+            .filter((item) => {
+              if (where.status?.not && item.status === where.status.not) {
+                return false;
+              }
+              return true;
+            });
+
+          if (select?.id || select?.status) {
+            return scoped.map((item) => ({
+              ...(select.id ? { id: item.id } : {}),
+              ...(select.status ? { status: item.status } : {}),
+            }));
+          }
+
+          return scoped;
+        },
+      ),
     },
     document: {
       findFirst: jest.fn(
