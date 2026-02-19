@@ -772,6 +772,9 @@ export interface components {
                 type: "domain_error";
                 code: string;
                 message: string;
+                details?: {
+                    [key: string]: unknown;
+                };
             };
         };
         AuthErrorEnvelope: {
@@ -1100,6 +1103,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["ValidationError"];
+            403: components["responses"]["AuthError"];
             409: components["responses"]["DomainError"];
             500: components["responses"]["UnexpectedError"];
         };
@@ -1267,6 +1271,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["ValidationError"];
+            403: components["responses"]["AuthError"];
             404: components["responses"]["NotFoundError"];
             500: components["responses"]["UnexpectedError"];
         };
@@ -1381,6 +1386,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["ValidationError"];
+            403: components["responses"]["AuthError"];
             404: components["responses"]["NotFoundError"];
             409: components["responses"]["DomainError"];
             500: components["responses"]["UnexpectedError"];
@@ -1414,6 +1420,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["ValidationError"];
+            403: components["responses"]["AuthError"];
             404: components["responses"]["NotFoundError"];
             409: components["responses"]["DomainError"];
             500: components["responses"]["UnexpectedError"];
@@ -1503,6 +1510,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["ValidationError"];
+            403: components["responses"]["AuthError"];
             404: components["responses"]["NotFoundError"];
             409: components["responses"]["DomainError"];
             500: components["responses"]["UnexpectedError"];
@@ -1536,6 +1544,7 @@ export interface operations {
                 };
             };
             400: components["responses"]["ValidationError"];
+            403: components["responses"]["AuthError"];
             404: components["responses"]["NotFoundError"];
             409: components["responses"]["DomainError"];
             500: components["responses"]["UnexpectedError"];

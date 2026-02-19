@@ -1,4 +1,14 @@
 export default function UiPreviewPage() {
+  const navItems: Array<[string, boolean]> = [
+    ["Dashboard", true],
+    ["Patients", false],
+    ["Orders", false],
+    ["Results entry", false],
+    ["Verification", false],
+    ["Documents", false],
+    ["Admin", false],
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/60 text-slate-900">
       {/* Top Bar */}
@@ -33,15 +43,7 @@ export default function UiPreviewPage() {
             <div className="px-4 py-4">
               <div className="text-xs font-semibold text-slate-500">Navigation</div>
               <nav className="mt-3 space-y-1 text-sm">
-                {[
-                  ["Dashboard", true],
-                  ["Patients", false],
-                  ["Orders", false],
-                  ["Results entry", false],
-                  ["Verification", false],
-                  ["Documents", false],
-                  ["Admin", false],
-                ].map(([label, active]) => (
+                {navItems.map(([label, active]) => (
                   <a
                     key={label}
                     href="#"
@@ -276,4 +278,3 @@ function ActionCard({
     </div>
   );
 }
-

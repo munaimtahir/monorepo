@@ -660,7 +660,7 @@ export class EncountersService {
               );
             }
 
-            const pendingVerification = await tx.labOrderItem.findMany({
+            const pendingVerification = await tx.labOrderItem.findFirst({
               where: {
                 tenantId,
                 encounterId: encounter.id,
@@ -674,15 +674,17 @@ export class EncountersService {
               },
             });
 
-            if (pendingVerification.length > 0) {
+            if (pendingVerification) {
               throw new DomainException(
                 'ENCOUNTER_FINALIZE_BLOCKED_UNVERIFIED_LAB',
                 'All ordered LAB tests must be verified before finalize',
                 {
-                  unverified_order_items: pendingVerification.map((item) => ({
-                    order_id: item.id,
-                    status: item.status,
-                  })),
+                  unverified_order_items: [
+                    {
+                      order_id: pendingVerification.id,
+                      status: pendingVerification.status,
+                    },
+                  ],
                 },
               );
             }

@@ -78,7 +78,7 @@ export function mapModuleRef(
     return { type, code, status };
 }
 
-/** Build full IdentityHeader props from API responses */
+/** Build full IdentityHeader props from API responses. moduleRef must be an explicit module/order entity with orderCode/requestCode; never derived from encounter. */
 export function mapIdentityHeader(args: {
     patient?: Record<string, unknown> | null;
     encounter?: Record<string, unknown> | null;

@@ -1303,6 +1303,10 @@ export default function EncounterDetailPage() {
       <div className="rounded border bg-white p-6 shadow mb-6">
         <div className="grid grid-cols-1 gap-4 text-sm">
           <p>
+            <span className="font-semibold">Visit Code:</span>{' '}
+            {encounter.encounterCode ?? '—'}
+          </p>
+          <p>
             <span className="font-semibold">Status:</span> {encounter.status}
           </p>
           <p>

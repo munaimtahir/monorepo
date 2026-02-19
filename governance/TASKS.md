@@ -41,5 +41,13 @@ This is the canonical checklist.
 - [ ] Plan presets + overrides
 - [ ] Admin monitoring (jobs, pdf failures)
 
+## Phase 4C — LAB hardening
+- [x] Centralized LAB RBAC permissions and guarded LAB write endpoints
+- [x] LAB enter/verify/publish idempotency and concurrency hardening
+- [x] Domain error precision for LAB + finalize blocking
+- [x] Document tenancy negative-path validation for LAB publish/download
+- [x] LAB command audit persistence with failure reason payloads
+- [x] Catalog integrity normalization + reference-range ambiguity guard
+
 ## Audit evidence
 - [x] 2026-02-19: workflow audit artifacts generated under `_audit_evidence/workflow_audit/`
