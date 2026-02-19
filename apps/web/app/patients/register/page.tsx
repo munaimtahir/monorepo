@@ -510,7 +510,7 @@ export default function RegisterPatientPage() {
                                 </div>
                                 {createdEncounter?.id && (
                                     <p className="mt-3 text-sm text-green-700">
-                                        Encounter created. Select tests on the right →
+                                        Encounter created. Select tests on the right. Sample collection happens after test selection and billing.
                                     </p>
                                 )}
                             </div>

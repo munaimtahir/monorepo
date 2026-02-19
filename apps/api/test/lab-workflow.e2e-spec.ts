@@ -1207,7 +1207,7 @@ describe('LAB workflow (e2e)', () => {
       });
   });
 
-  it('returns PREP_INCOMPLETE when ordering LAB test without preparation data', async () => {
+  it('allows ordering LAB test before preparation data is captured', async () => {
     const createTestResponse = await request(app.getHttpServer())
       .post('/lab/tests')
       .set('Host', 'tenant-a.test')
@@ -1258,13 +1258,10 @@ describe('LAB workflow (e2e)', () => {
       .send({
         testId,
       })
-      .expect(409)
+      .expect(200)
       .expect((response) => {
-        expect(response.body.error.type).toBe('domain_error');
-        expect(response.body.error.code).toBe('PREP_INCOMPLETE');
-        expect(response.body.error.details.missing_fields).toEqual([
-          'sample_collected_at',
-        ]);
+        expect(response.body.orderItem.status).toBe('ORDERED');
+        expect(response.body.test.id).toBe(testId);
       });
   });
 

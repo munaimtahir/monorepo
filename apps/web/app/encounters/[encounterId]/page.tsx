@@ -861,9 +861,10 @@ export default function EncounterDetailPage() {
   const allLabTestsVerified =
     hasOrderedLabTests &&
     orderedLabTests.every((item) => item.orderItem.status === 'VERIFIED');
-  const prepComplete = encounter?.prep_complete === true;
   const canOrderLabTests =
-    prepComplete && (encounterStatus === 'PREP' || encounterStatus === 'IN_PROGRESS');
+    encounterStatus === 'CREATED' ||
+    encounterStatus === 'PREP' ||
+    encounterStatus === 'IN_PROGRESS';
   const prepFieldErrorFor = (field: string): string | null => {
     const nested = prepFieldErrors[`prep.${field}`];
     if (nested && nested.length > 0) {
@@ -1417,9 +1418,9 @@ export default function EncounterDetailPage() {
         <div className="mb-6 rounded border border-slate-200 bg-slate-50 p-4">
           <h3 className="text-sm font-semibold text-slate-800 mb-2">LAB workflow (complete in order)</h3>
           <ol className="text-xs text-slate-600 list-decimal list-inside space-y-1">
-            <li>Start preparation (Preparation Data section)</li>
-            <li>Save Prep → Proceed to MAIN</li>
             <li>Add test(s) from catalog</li>
+            <li>Record payment and print receipt</li>
+            <li>Collect and receive sample (Preparation Data section)</li>
             <li>Enter results → Submit Results per test</li>
             <li>Verify each order item</li>
             <li>Finalize Encounter (Main Data section)</li>
@@ -1562,7 +1563,7 @@ export default function EncounterDetailPage() {
           <div className="mb-4">
             <p className="text-sm text-gray-600 mb-3">
               {encounter.type === 'LAB'
-                ? 'Start preparation to add lab tests and enter results.'
+                ? 'Order tests first. Start preparation when sample collection begins.'
                 : 'Start preparation to continue.'}
             </p>
             <button
@@ -2305,16 +2306,9 @@ export default function EncounterDetailPage() {
                     {isAddingLabTest ? 'Adding...' : 'Add to Encounter'}
                   </button>
                 </div>
-                {!prepComplete && (
-                  <p className="mt-3 text-sm text-amber-700">
-                    Complete and save Preparation Data first.
-                  </p>
-                )}
-                {prepComplete &&
-                  encounterStatus !== 'PREP' &&
-                  encounterStatus !== 'IN_PROGRESS' && (
+                {!canOrderLabTests && (
                     <p className="mt-3 text-sm text-amber-700">
-                      Ordering is allowed only while encounter is PREP or IN_PROGRESS.
+                      Ordering is available only while encounter is CREATED, PREP, or IN_PROGRESS.
                     </p>
                 )}
               </>

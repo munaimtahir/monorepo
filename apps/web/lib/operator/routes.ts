@@ -4,7 +4,8 @@
  */
 
 export const operatorRoutes = {
-  register: '/operator/register',
+  /** Registration uses the shared patient registration form (mobile-first, 03xx-1234567, create encounter + order tests). */
+  register: '/patients/register',
   worklist: '/operator/worklist',
   worklistDetail: (encounterId: string) => `/operator/worklist/${encounterId}`,
   samples: '/operator/samples',
