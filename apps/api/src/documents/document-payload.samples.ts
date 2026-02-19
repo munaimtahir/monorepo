@@ -2,7 +2,10 @@ import type { RequestedDocumentType } from './document-types';
 
 type JsonRecord = Record<string, unknown>;
 
-export const DOCUMENT_PAYLOAD_SAMPLES: Record<RequestedDocumentType, JsonRecord> = {
+export const DOCUMENT_PAYLOAD_SAMPLES: Record<
+  RequestedDocumentType,
+  JsonRecord
+> = {
   ENCOUNTER_SUMMARY_V1: {
     patient: {
       regNo: 'REG-00000001',

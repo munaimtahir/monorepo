@@ -249,7 +249,10 @@ export class DocumentsService {
   }
 
   async getDocumentById(documentId: string): Promise<DocumentResponse> {
-    const document = await this.findDocumentByIdForTenant(this.tenantId, documentId);
+    const document = await this.findDocumentByIdForTenant(
+      this.tenantId,
+      documentId,
+    );
     return toDocumentResponse(document);
   }
 
@@ -270,7 +273,10 @@ export class DocumentsService {
     });
   }
 
-  private async findDocumentByIdForTenant(tenantId: string, documentId: string) {
+  private async findDocumentByIdForTenant(
+    tenantId: string,
+    documentId: string,
+  ) {
     const document = await this.prisma.document.findFirst({
       where: {
         id: documentId,

@@ -148,7 +148,9 @@ function createPrismaMock() {
         },
       ),
       findMany: jest.fn(async ({ where }: { where: { tenantId: string } }) => {
-        return patients.filter((patient) => patient.tenantId === where.tenantId);
+        return patients.filter(
+          (patient) => patient.tenantId === where.tenantId,
+        );
       }),
       count: jest.fn(async ({ where }: { where: { tenantId: string } }) => {
         return patients.filter((patient) => patient.tenantId === where.tenantId)
@@ -196,17 +198,21 @@ function createPrismaMock() {
           return (
             encounters.find(
               (encounter) =>
-                encounter.id === where.id && encounter.tenantId === where.tenantId,
+                encounter.id === where.id &&
+                encounter.tenantId === where.tenantId,
             ) ?? null
           );
         },
       ),
       findMany: jest.fn(async ({ where }: { where: { tenantId: string } }) => {
-        return encounters.filter((encounter) => encounter.tenantId === where.tenantId);
+        return encounters.filter(
+          (encounter) => encounter.tenantId === where.tenantId,
+        );
       }),
       count: jest.fn(async ({ where }: { where: { tenantId: string } }) => {
-        return encounters.filter((encounter) => encounter.tenantId === where.tenantId)
-          .length;
+        return encounters.filter(
+          (encounter) => encounter.tenantId === where.tenantId,
+        ).length;
       }),
       update: jest.fn(
         async ({
@@ -323,7 +329,10 @@ function createPrismaMock() {
           if (prep.tenantId !== where.tenantId) {
             return false;
           }
-          if (Array.isArray(encounterIds) && !encounterIds.includes(prep.encounterId)) {
+          if (
+            Array.isArray(encounterIds) &&
+            !encounterIds.includes(prep.encounterId)
+          ) {
             return false;
           }
           return true;

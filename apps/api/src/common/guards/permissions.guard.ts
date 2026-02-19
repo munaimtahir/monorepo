@@ -9,9 +9,7 @@ import { ClsService } from 'nestjs-cls';
 import type { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
 import { parseMockBearerTokenHeader } from '../auth/mock-token.util';
-import {
-  REQUIRED_PERMISSIONS_METADATA_KEY,
-} from '../decorators/require-permissions.decorator';
+import { REQUIRED_PERMISSIONS_METADATA_KEY } from '../decorators/require-permissions.decorator';
 
 type AuthenticatedRequest = Request & {
   user?: {
@@ -52,8 +50,15 @@ export class PermissionsGuard implements CanActivate {
     }
 
     const claimedPermissions = new Set(claims.permissions);
-    if (this.hasAllRequiredPermissions(claimedPermissions, requiredPermissions)) {
-      this.bindUserContext(request, claims.userId, claims.tenantId, claims.permissions);
+    if (
+      this.hasAllRequiredPermissions(claimedPermissions, requiredPermissions)
+    ) {
+      this.bindUserContext(
+        request,
+        claims.userId,
+        claims.tenantId,
+        claims.permissions,
+      );
       return true;
     }
 
@@ -61,11 +66,21 @@ export class PermissionsGuard implements CanActivate {
       claims.userId,
       tenantId,
     );
-    if (!this.hasAllRequiredPermissions(new Set(dbPermissions), requiredPermissions)) {
+    if (
+      !this.hasAllRequiredPermissions(
+        new Set(dbPermissions),
+        requiredPermissions,
+      )
+    ) {
       throw new ForbiddenException('Permission denied');
     }
 
-    this.bindUserContext(request, claims.userId, claims.tenantId, dbPermissions);
+    this.bindUserContext(
+      request,
+      claims.userId,
+      claims.tenantId,
+      dbPermissions,
+    );
     return true;
   }
 
@@ -96,11 +111,15 @@ export class PermissionsGuard implements CanActivate {
     userId: string,
     tenantId: string,
   ): Promise<string[]> {
-    const rolePermissionModel = (this.prisma as unknown as {
-      rolePermission?: {
-        findMany?: (args: unknown) => Promise<Array<{ permission: { key: string } }>>;
-      };
-    }).rolePermission;
+    const rolePermissionModel = (
+      this.prisma as unknown as {
+        rolePermission?: {
+          findMany?: (
+            args: unknown,
+          ) => Promise<Array<{ permission: { key: string } }>>;
+        };
+      }
+    ).rolePermission;
 
     if (!rolePermissionModel?.findMany) {
       return [];
@@ -129,4 +148,3 @@ export class PermissionsGuard implements CanActivate {
     return mappings.map((item) => item.permission.key);
   }
 }
-

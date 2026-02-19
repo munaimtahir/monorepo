@@ -30,7 +30,10 @@ export function toDocumentResponse(document: Document): DocumentResponse {
   return {
     id: document.id,
     type: requestedType,
-    templateKey: templateKeyFromPayloadJson(document.payloadJson, requestedType),
+    templateKey: templateKeyFromPayloadJson(
+      document.payloadJson,
+      requestedType,
+    ),
     status: document.status,
     encounterId: document.encounterId,
     payloadHash: document.payloadHash,

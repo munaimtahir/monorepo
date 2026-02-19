@@ -60,7 +60,9 @@ describe('LabWorkflowService.getVerificationQueue', () => {
           test: { code: 'ALB', name: 'Albumin' },
         },
       ])
-      .mockResolvedValueOnce([{ encounterId: 'enc-1', status: LabOrderItemStatus.RESULTS_ENTERED }]);
+      .mockResolvedValueOnce([
+        { encounterId: 'enc-1', status: LabOrderItemStatus.RESULTS_ENTERED },
+      ]);
     (prisma.document.findMany as jest.Mock).mockResolvedValue([]);
 
     const result = await service.getVerificationQueue({ limit: 10 });

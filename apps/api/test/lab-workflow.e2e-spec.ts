@@ -217,7 +217,10 @@ class InMemoryStorageAdapter implements DocumentStorageAdapter {
     return { storageKey };
   }
 
-  async getPdf(input: { tenantId: string; storageKey: string }): Promise<Buffer> {
+  async getPdf(input: {
+    tenantId: string;
+    storageKey: string;
+  }): Promise<Buffer> {
     if (!input.storageKey.startsWith(`${input.tenantId}/`)) {
       throw new Error('storage key does not belong to tenant');
     }
@@ -374,7 +377,8 @@ function createPrismaMock(state: MemoryState) {
 
           const patient = state.patients.find(
             (item) =>
-              item.id === encounter.patientId && item.tenantId === encounter.tenantId,
+              item.id === encounter.patientId &&
+              item.tenantId === encounter.tenantId,
           );
           if (!patient) {
             return null;
@@ -396,7 +400,8 @@ function createPrismaMock(state: MemoryState) {
             .map((orderItem) => {
               const test = state.labTests.find(
                 (item) =>
-                  item.id === orderItem.testId && item.tenantId === encounter.tenantId,
+                  item.id === orderItem.testId &&
+                  item.tenantId === encounter.tenantId,
               );
               const testParameters = state.labParameters
                 .filter(
@@ -448,7 +453,9 @@ function createPrismaMock(state: MemoryState) {
           where: { id: string };
           data: { status?: string; endedAt?: Date };
         }) => {
-          const encounter = state.encounters.find((item) => item.id === where.id);
+          const encounter = state.encounters.find(
+            (item) => item.id === where.id,
+          );
           if (!encounter) {
             throw new Error('encounter not found');
           }
@@ -466,46 +473,44 @@ function createPrismaMock(state: MemoryState) {
       ),
     },
     labEncounterPrep: {
-      upsert: jest.fn(
-        async ({ where, create, update }: any) => {
-          const existing = state.labPreps.find(
-            (item) =>
-              item.tenantId === where.tenantId_encounterId.tenantId &&
-              item.encounterId === where.tenantId_encounterId.encounterId,
-          );
+      upsert: jest.fn(async ({ where, create, update }: any) => {
+        const existing = state.labPreps.find(
+          (item) =>
+            item.tenantId === where.tenantId_encounterId.tenantId &&
+            item.encounterId === where.tenantId_encounterId.encounterId,
+        );
 
-          if (existing) {
-            if (update.specimenType !== undefined) {
-              existing.specimenType = update.specimenType;
-            }
-            if (update.collectedAt !== undefined) {
-              existing.collectedAt = update.collectedAt;
-            }
-            if (update.collectorName !== undefined) {
-              existing.collectorName = update.collectorName;
-            }
-            if (update.receivedAt !== undefined) {
-              existing.receivedAt = update.receivedAt;
-            }
-            existing.updatedAt = new Date();
-            return existing;
+        if (existing) {
+          if (update.specimenType !== undefined) {
+            existing.specimenType = update.specimenType;
           }
+          if (update.collectedAt !== undefined) {
+            existing.collectedAt = update.collectedAt;
+          }
+          if (update.collectorName !== undefined) {
+            existing.collectorName = update.collectorName;
+          }
+          if (update.receivedAt !== undefined) {
+            existing.receivedAt = update.receivedAt;
+          }
+          existing.updatedAt = new Date();
+          return existing;
+        }
 
-          const record: LabPrepRecord = {
-            id: makeId(2000 + state.labPreps.length + 1),
-            tenantId: create.tenantId,
-            encounterId: create.encounterId,
-            specimenType: create.specimenType ?? null,
-            collectedAt: create.collectedAt ?? null,
-            collectorName: create.collectorName ?? null,
-            receivedAt: create.receivedAt ?? null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-          state.labPreps.push(record);
-          return record;
-        },
-      ),
+        const record: LabPrepRecord = {
+          id: makeId(2000 + state.labPreps.length + 1),
+          tenantId: create.tenantId,
+          encounterId: create.encounterId,
+          specimenType: create.specimenType ?? null,
+          collectedAt: create.collectedAt ?? null,
+          collectorName: create.collectorName ?? null,
+          receivedAt: create.receivedAt ?? null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        state.labPreps.push(record);
+        return record;
+      }),
       findFirst: jest.fn(async ({ where }: any) => {
         return (
           state.labPreps.find(
@@ -521,7 +526,10 @@ function createPrismaMock(state: MemoryState) {
           if (item.tenantId !== where.tenantId) {
             return false;
           }
-          if (Array.isArray(encounterIds) && !encounterIds.includes(item.encounterId)) {
+          if (
+            Array.isArray(encounterIds) &&
+            !encounterIds.includes(item.encounterId)
+          ) {
             return false;
           }
           return true;
@@ -544,10 +552,13 @@ function createPrismaMock(state: MemoryState) {
         return record;
       }),
       findMany: jest.fn(async ({ where }: any) => {
-        return state.labTests.filter((item) => item.tenantId === where.tenantId);
+        return state.labTests.filter(
+          (item) => item.tenantId === where.tenantId,
+        );
       }),
       count: jest.fn(async ({ where }: any) => {
-        return state.labTests.filter((item) => item.tenantId === where.tenantId).length;
+        return state.labTests.filter((item) => item.tenantId === where.tenantId)
+          .length;
       }),
       findFirst: jest.fn(async ({ where }: any) => {
         return (
@@ -601,8 +612,7 @@ function createPrismaMock(state: MemoryState) {
       findFirst: jest.fn(async ({ where, orderBy, select }: any) => {
         let scoped = state.labParameters.filter(
           (item) =>
-            item.tenantId === where.tenantId &&
-            item.testId === where.testId,
+            item.tenantId === where.tenantId && item.testId === where.testId,
         );
 
         if (orderBy?.displayOrder === 'desc') {
@@ -622,7 +632,8 @@ function createPrismaMock(state: MemoryState) {
       }),
       count: jest.fn(async ({ where }: any) => {
         return state.labParameters.filter(
-          (item) => item.tenantId === where.tenantId && item.testId === where.testId,
+          (item) =>
+            item.tenantId === where.tenantId && item.testId === where.testId,
         ).length;
       }),
     },
@@ -715,7 +726,11 @@ function createPrismaMock(state: MemoryState) {
             continue;
           }
 
-          if (where.status && typeof where.status === 'string' && order.status !== where.status) {
+          if (
+            where.status &&
+            typeof where.status === 'string' &&
+            order.status !== where.status
+          ) {
             continue;
           }
 
@@ -730,7 +745,8 @@ function createPrismaMock(state: MemoryState) {
       count: jest.fn(async ({ where }: any) => {
         return state.labOrders.filter(
           (item) =>
-            item.tenantId === where.tenantId && item.encounterId === where.encounterId,
+            item.tenantId === where.tenantId &&
+            item.encounterId === where.encounterId,
         ).length;
       }),
     },
@@ -775,8 +791,10 @@ function createPrismaMock(state: MemoryState) {
         const existing = state.labResults.find(
           (item) =>
             item.tenantId === where.tenantId_orderItemId_parameterId.tenantId &&
-            item.orderItemId === where.tenantId_orderItemId_parameterId.orderItemId &&
-            item.parameterId === where.tenantId_orderItemId_parameterId.parameterId,
+            item.orderItemId ===
+              where.tenantId_orderItemId_parameterId.orderItemId &&
+            item.parameterId ===
+              where.tenantId_orderItemId_parameterId.parameterId,
         );
 
         if (existing) {
@@ -816,7 +834,8 @@ function createPrismaMock(state: MemoryState) {
           if (
             item.tenantId === where.tenantId &&
             item.orderItemId === where.orderItemId &&
-            (!where.parameterId?.in || where.parameterId.in.includes(item.parameterId))
+            (!where.parameterId?.in ||
+              where.parameterId.in.includes(item.parameterId))
           ) {
             item.verifiedBy = data.verifiedBy ?? item.verifiedBy;
             item.verifiedAt = data.verifiedAt ?? item.verifiedAt;
@@ -834,7 +853,8 @@ function createPrismaMock(state: MemoryState) {
           state.invoices.find(
             (inv) =>
               inv.tenantId === where.tenantId &&
-              (where.encounterId == null || inv.encounterId === where.encounterId),
+              (where.encounterId == null ||
+                inv.encounterId === where.encounterId),
           ) ?? null
         );
       }),
@@ -845,18 +865,28 @@ function createPrismaMock(state: MemoryState) {
           patientId: data.patientId,
           encounterId: data.encounterId ?? null,
           status: data.status ?? 'UNPAID',
-          totalAmount: typeof data.totalAmount === 'object' && data.totalAmount?.toString ? Number(data.totalAmount.toString()) : Number(data.totalAmount ?? 0),
+          totalAmount:
+            typeof data.totalAmount === 'object' && data.totalAmount?.toString
+              ? Number(data.totalAmount.toString())
+              : Number(data.totalAmount ?? 0),
           currency: data.currency ?? 'USD',
           createdAt: new Date(),
         };
         state.invoices.push(record);
-        return include?.payments ? { ...record, payments: state.payments.filter((p) => p.invoiceId === record.id) } : record;
+        return include?.payments
+          ? {
+              ...record,
+              payments: state.payments.filter((p) => p.invoiceId === record.id),
+            }
+          : record;
       }),
       findUniqueOrThrow: jest.fn(async ({ where, include }: any) => {
         const inv = state.invoices.find((i) => i.id === where.id);
         if (!inv) throw new Error('Invoice not found');
         const payments = include?.payments
-          ? state.payments.filter((p) => p.invoiceId === inv.id).sort((a, b) => a.receivedAt.getTime() - b.receivedAt.getTime())
+          ? state.payments
+              .filter((p) => p.invoiceId === inv.id)
+              .sort((a, b) => a.receivedAt.getTime() - b.receivedAt.getTime())
           : [];
         return { ...inv, payments };
       }),
@@ -874,7 +904,10 @@ function createPrismaMock(state: MemoryState) {
           tenantId: data.tenantId,
           invoiceId: data.invoiceId,
           method: data.method,
-          amount: typeof data.amount === 'object' && data.amount?.toString ? Number(data.amount.toString()) : Number(data.amount),
+          amount:
+            typeof data.amount === 'object' && data.amount?.toString
+              ? Number(data.amount.toString())
+              : Number(data.amount),
           receivedAt: data.receivedAt ? new Date(data.receivedAt) : new Date(),
           reference: data.reference ?? null,
         };
@@ -892,10 +925,16 @@ function createPrismaMock(state: MemoryState) {
             if (where.id && document.id !== where.id) {
               return false;
             }
-            if (where.encounterId && document.encounterId !== where.encounterId) {
+            if (
+              where.encounterId &&
+              document.encounterId !== where.encounterId
+            ) {
               return false;
             }
-            if (where.documentType && document.documentType !== where.documentType) {
+            if (
+              where.documentType &&
+              document.documentType !== where.documentType
+            ) {
               return false;
             }
             if (
@@ -904,7 +943,10 @@ function createPrismaMock(state: MemoryState) {
             ) {
               return false;
             }
-            if (where.payloadHash && document.payloadHash !== where.payloadHash) {
+            if (
+              where.payloadHash &&
+              document.payloadHash !== where.payloadHash
+            ) {
               return false;
             }
             return true;
@@ -1036,57 +1078,59 @@ describe('LAB workflow (e2e)', () => {
   const storageAdapter = new InMemoryStorageAdapter(state.files);
 
   const queueAdapter: DocumentRenderQueue = {
-    enqueueDocumentRender: jest.fn(async (payload: DocumentRenderJobPayload) => {
-      const document = state.documents.find(
-        (item) =>
-          item.id === payload.documentId &&
-          item.tenantId === payload.tenantId &&
-          item.status === 'QUEUED',
-      );
+    enqueueDocumentRender: jest.fn(
+      async (payload: DocumentRenderJobPayload) => {
+        const document = state.documents.find(
+          (item) =>
+            item.id === payload.documentId &&
+            item.tenantId === payload.tenantId &&
+            item.status === 'QUEUED',
+        );
 
-      if (!document) {
-        return;
-      }
+        if (!document) {
+          return;
+        }
 
-      const payloadMeta =
-        typeof document.payloadJson === 'object' &&
-        document.payloadJson !== null &&
-        typeof (document.payloadJson as Record<string, unknown>).meta === 'object' &&
-        (document.payloadJson as Record<string, unknown>).meta !== null
-          ? ((document.payloadJson as Record<string, unknown>)
-              .meta as Record<string, unknown>)
-          : null;
+        const payloadMeta =
+          typeof document.payloadJson === 'object' &&
+          document.payloadJson !== null &&
+          typeof document.payloadJson.meta === 'object' &&
+          document.payloadJson.meta !== null
+            ? (document.payloadJson.meta as Record<string, unknown>)
+            : null;
 
-      const templateKey =
-        payloadMeta && typeof payloadMeta.templateKey === 'string'
-          ? payloadMeta.templateKey
-          : 'ENCOUNTER_SUMMARY_V1';
+        const templateKey =
+          payloadMeta && typeof payloadMeta.templateKey === 'string'
+            ? payloadMeta.templateKey
+            : 'ENCOUNTER_SUMMARY_V1';
 
-      const deterministicPdf = Buffer.from(
-        `${templateKey}|t${document.templateVersion}|p${document.payloadVersion}|${canonicalizeJson(document.payloadJson)}`,
-      );
-      const { storageKey } = await storageAdapter.putPdf({
-        tenantId: payload.tenantId,
-        documentId: payload.documentId,
-        bytes: deterministicPdf,
-      });
+        const deterministicPdf = Buffer.from(
+          `${templateKey}|t${document.templateVersion}|p${document.payloadVersion}|${canonicalizeJson(document.payloadJson)}`,
+        );
+        const { storageKey } = await storageAdapter.putPdf({
+          tenantId: payload.tenantId,
+          documentId: payload.documentId,
+          bytes: deterministicPdf,
+        });
 
-      document.status = 'RENDERED';
-      document.storageBackend = 'LOCAL';
-      document.storageKey = storageKey;
-      document.pdfHash = sha256Hex(deterministicPdf);
-      document.renderedAt = new Date();
-      document.errorCode = null;
-      document.errorMessage = null;
+        document.status = 'RENDERED';
+        document.storageBackend = 'LOCAL';
+        document.storageKey = storageKey;
+        document.pdfHash = sha256Hex(deterministicPdf);
+        document.renderedAt = new Date();
+        document.errorCode = null;
+        document.errorMessage = null;
 
-      const encounter = state.encounters.find(
-        (item) =>
-          item.id === document.encounterId && item.tenantId === payload.tenantId,
-      );
-      if (encounter && encounter.status === 'FINALIZED') {
-        encounter.status = 'DOCUMENTED';
-      }
-    }),
+        const encounter = state.encounters.find(
+          (item) =>
+            item.id === document.encounterId &&
+            item.tenantId === payload.tenantId,
+        );
+        if (encounter && encounter.status === 'FINALIZED') {
+          encounter.status = 'DOCUMENTED';
+        }
+      },
+    ),
   };
 
   beforeAll(async () => {
@@ -1243,7 +1287,11 @@ describe('LAB workflow (e2e)', () => {
       .expect(201);
 
     const encounterId = encounterResponse.body.id as string;
-    const roleTokens = [tenantAUserToken, tenantAManagerToken, tenantAAdminToken];
+    const roleTokens = [
+      tenantAUserToken,
+      tenantAManagerToken,
+      tenantAAdminToken,
+    ];
 
     for (const [index, token] of roleTokens.entries()) {
       await request(app.getHttpServer())
@@ -1253,7 +1301,9 @@ describe('LAB workflow (e2e)', () => {
         .send({
           encounter_id: encounterId,
           prep: {
-            sample_collected_at: new Date(Date.now() + index * 1000).toISOString(),
+            sample_collected_at: new Date(
+              Date.now() + index * 1000,
+            ).toISOString(),
             notes: `updated-by-role-${index + 1}`,
           },
         })
@@ -1482,9 +1532,13 @@ describe('LAB workflow (e2e)', () => {
       .expect(200);
 
     expect(secondPublishResponse.body.id).toBe(documentId);
-    expect(secondPublishResponse.body.pdfHash).toBe(firstPublishResponse.body.pdfHash);
+    expect(secondPublishResponse.body.pdfHash).toBe(
+      firstPublishResponse.body.pdfHash,
+    );
     expect(state.documents).toHaveLength(1);
-    expect((queueAdapter.enqueueDocumentRender as jest.Mock).mock.calls.length).toBe(1);
+    expect(
+      (queueAdapter.enqueueDocumentRender as jest.Mock).mock.calls.length,
+    ).toBe(1);
 
     await request(app.getHttpServer())
       .get('/lab/tests')
@@ -1515,9 +1569,11 @@ describe('LAB workflow (e2e)', () => {
       .set('Authorization', `Bearer ${tenantBPublishToken}`)
       .expect(404);
 
-    expect(state.auditEvents.some((event) => event.eventType === 'lims.order.created')).toBe(
-      true,
-    );
+    expect(
+      state.auditEvents.some(
+        (event) => event.eventType === 'lims.order.created',
+      ),
+    ).toBe(true);
     expect(
       state.auditEvents.some(
         (event) => event.eventType === 'lims.report.publish.requested',

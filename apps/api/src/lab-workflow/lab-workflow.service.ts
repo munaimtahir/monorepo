@@ -62,7 +62,10 @@ export class LabWorkflowService {
         const encounter = await this.assertLabEncounter(tx, encounterId);
         await this.assertLabPrepComplete(tx, encounter.id);
 
-        if (encounter.status === 'FINALIZED' || encounter.status === 'DOCUMENTED') {
+        if (
+          encounter.status === 'FINALIZED' ||
+          encounter.status === 'DOCUMENTED'
+        ) {
           throw new DomainException(
             'ENCOUNTER_STATE_INVALID',
             'Cannot add LAB tests after encounter finalization',
@@ -236,7 +239,9 @@ export class LabWorkflowService {
             active: true,
           },
         });
-        const parameterById = new Map(activeParameters.map((item) => [item.id, item]));
+        const parameterById = new Map(
+          activeParameters.map((item) => [item.id, item]),
+        );
 
         for (const result of dto.results) {
           const parameter = parameterById.get(result.parameterId);
@@ -293,7 +298,9 @@ export class LabWorkflowService {
         });
 
         const allRequiredValuesPresent = activeParameters.every((parameter) => {
-          const value = allValues.find((item) => item.parameterId === parameter.id);
+          const value = allValues.find(
+            (item) => item.parameterId === parameter.id,
+          );
           return Boolean(value && value.value.trim().length > 0);
         });
 
@@ -415,7 +422,9 @@ export class LabWorkflowService {
           );
         }
 
-        const activeParameterIds = activeParameters.map((parameter) => parameter.id);
+        const activeParameterIds = activeParameters.map(
+          (parameter) => parameter.id,
+        );
         const values = await tx.labResultItem.findMany({
           where: {
             tenantId,
@@ -428,7 +437,9 @@ export class LabWorkflowService {
 
         const missing = activeParameters
           .filter((parameter) => {
-            const value = values.find((item) => item.parameterId === parameter.id);
+            const value = values.find(
+              (item) => item.parameterId === parameter.id,
+            );
             return !value || value.value.trim().length === 0;
           })
           .map((parameter) => ({
@@ -546,7 +557,10 @@ export class LabWorkflowService {
         );
       }
 
-      if (encounter.status !== 'FINALIZED' && encounter.status !== 'DOCUMENTED') {
+      if (
+        encounter.status !== 'FINALIZED' &&
+        encounter.status !== 'DOCUMENTED'
+      ) {
         throw new DomainException(
           'LAB_PUBLISH_BLOCKED_NOT_FINALIZED',
           'Encounter must be FINALIZED before LAB report publishing',
@@ -683,7 +697,9 @@ export class LabWorkflowService {
       orderBy: [{ displayOrder: 'asc' }, { name: 'asc' }],
     });
 
-    const orderMap = new Map(parameters.map((parameter, index) => [parameter.id, index]));
+    const orderMap = new Map(
+      parameters.map((parameter, index) => [parameter.id, index]),
+    );
 
     const results = await tx.labResultItem.findMany({
       where: {
@@ -693,8 +709,10 @@ export class LabWorkflowService {
     });
 
     results.sort((left, right) => {
-      const leftOrder = orderMap.get(left.parameterId) ?? Number.MAX_SAFE_INTEGER;
-      const rightOrder = orderMap.get(right.parameterId) ?? Number.MAX_SAFE_INTEGER;
+      const leftOrder =
+        orderMap.get(left.parameterId) ?? Number.MAX_SAFE_INTEGER;
+      const rightOrder =
+        orderMap.get(right.parameterId) ?? Number.MAX_SAFE_INTEGER;
       if (leftOrder !== rightOrder) {
         return leftOrder - rightOrder;
       }
@@ -737,18 +755,23 @@ export class LabWorkflowService {
       return LabResultFlag.UNKNOWN;
     }
 
-    if (matchedRange?.refLow !== null && matchedRange?.refLow !== undefined && valueNumeric < matchedRange.refLow) {
+    if (
+      matchedRange?.refLow !== null &&
+      matchedRange?.refLow !== undefined &&
+      valueNumeric < matchedRange.refLow
+    ) {
       return LabResultFlag.LOW;
     }
 
-    if (matchedRange?.refHigh !== null && matchedRange?.refHigh !== undefined && valueNumeric > matchedRange.refHigh) {
+    if (
+      matchedRange?.refHigh !== null &&
+      matchedRange?.refHigh !== undefined &&
+      valueNumeric > matchedRange.refHigh
+    ) {
       return LabResultFlag.HIGH;
     }
 
-    if (
-      matchedRange?.refLow !== null ||
-      matchedRange?.refHigh !== null
-    ) {
+    if (matchedRange?.refLow !== null || matchedRange?.refHigh !== null) {
       return LabResultFlag.NORMAL;
     }
 
@@ -765,7 +788,9 @@ export class LabWorkflowService {
       return fromCls;
     }
 
-    const claims = parseMockBearerTokenHeader(this.request.headers.authorization);
+    const claims = parseMockBearerTokenHeader(
+      this.request.headers.authorization,
+    );
     return claims?.userId ?? null;
   }
 
@@ -840,11 +865,13 @@ export class LabWorkflowService {
       payload: Record<string, unknown>;
     },
   ): Promise<void> {
-    const auditModel = (source as unknown as {
-      auditEvent?: {
-        create?: (args: unknown) => Promise<unknown>;
-      };
-    }).auditEvent;
+    const auditModel = (
+      source as unknown as {
+        auditEvent?: {
+          create?: (args: unknown) => Promise<unknown>;
+        };
+      }
+    ).auditEvent;
 
     if (!auditModel?.create) {
       return;
@@ -928,9 +955,7 @@ export class LabWorkflowService {
         status: LabOrderItemStatus.RESULTS_ENTERED,
       },
       take: limit + 1,
-      ...(params.cursor
-        ? { cursor: { id: params.cursor }, skip: 1 }
-        : {}),
+      ...(params.cursor ? { cursor: { id: params.cursor }, skip: 1 } : {}),
       orderBy: { createdAt: 'desc' },
       include: {
         encounter: { include: { patient: true } },
@@ -956,7 +981,10 @@ export class LabWorkflowService {
         })
         .then((docs) => new Set(docs.map((d) => d.encounterId))),
     ]);
-    const itemsByEncounterId = new Map<string, { status: LabOrderItemStatus }[]>();
+    const itemsByEncounterId = new Map<
+      string,
+      { status: LabOrderItemStatus }[]
+    >();
     for (const item of allItemsByEncounter) {
       const list = itemsByEncounterId.get(item.encounterId) ?? [];
       list.push({ status: item.status });

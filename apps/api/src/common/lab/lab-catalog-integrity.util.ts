@@ -34,4 +34,3 @@ export function ensureSingleReferenceRangeMatch(
 
   return candidates[0];
 }
-

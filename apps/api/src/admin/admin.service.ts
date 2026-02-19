@@ -5,8 +5,7 @@ import { deriveLabEncounterStatus } from '../common/lab/lab-derived-status.util'
 import { PrismaService } from '../prisma/prisma.service';
 import type { LabEncounterStatus } from '../common/lab/lab-derived-status.util';
 
-const PDF_SERVICE_URL =
-  process.env.PDF_SERVICE_URL ?? 'http://localhost:5000';
+const PDF_SERVICE_URL = process.env.PDF_SERVICE_URL ?? 'http://localhost:5000';
 const PDF_HEALTH_CACHE_MS = 60_000;
 
 type CachedPdfHealth = {

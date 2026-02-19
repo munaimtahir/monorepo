@@ -10,9 +10,24 @@ describe('deriveLabEncounterStatus', () => {
     hasPublishedReport: boolean;
     expected: LabEncounterStatus;
   }> = [
-    { name: 'no items -> DRAFT', items: [], hasPublishedReport: false, expected: 'DRAFT' },
-    { name: 'no items, report exists -> DRAFT (no items)', items: [], hasPublishedReport: true, expected: 'DRAFT' },
-    { name: 'all ORDERED -> ORDERED', items: [{ status: 'ORDERED' }], hasPublishedReport: false, expected: 'ORDERED' },
+    {
+      name: 'no items -> DRAFT',
+      items: [],
+      hasPublishedReport: false,
+      expected: 'DRAFT',
+    },
+    {
+      name: 'no items, report exists -> DRAFT (no items)',
+      items: [],
+      hasPublishedReport: true,
+      expected: 'DRAFT',
+    },
+    {
+      name: 'all ORDERED -> ORDERED',
+      items: [{ status: 'ORDERED' }],
+      hasPublishedReport: false,
+      expected: 'ORDERED',
+    },
     {
       name: 'two ORDERED -> ORDERED',
       items: [{ status: 'ORDERED' }, { status: 'ORDERED' }],

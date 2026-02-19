@@ -54,10 +54,7 @@ export class EncountersController {
 
   @Post(':id/payments')
   @HttpCode(HttpStatus.OK)
-  recordPayment(
-    @Param('id') id: string,
-    @Body() dto: RecordPaymentDto,
-  ) {
+  recordPayment(@Param('id') id: string, @Body() dto: RecordPaymentDto) {
     return this.paymentsService.recordPayment(id, dto);
   }
 

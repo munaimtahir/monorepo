@@ -41,6 +41,7 @@ This is the canonical checklist.
 - [ ] Tenant provisioning UI
 - [ ] Plan presets + overrides
 - [ ] Admin monitoring (jobs, pdf failures)
+- [x] Web admin scaffold: Business & Users + Catalog Settings routes/navigation/theme placeholders (2026-02-19)
 
 ## Phase 4C — LAB hardening
 - [x] Centralized LAB RBAC permissions and guarded LAB write endpoints

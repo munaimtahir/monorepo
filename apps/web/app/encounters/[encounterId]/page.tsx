@@ -52,8 +52,8 @@ type RecordPaymentRequest =
   >['content']['application/json'];
 type RecordPaymentResponse =
   paths['/encounters/{id}/payments']['post']['responses'][200]['content']['application/json'];
-type BillingResponse =
-  paths['/encounters/{id}/billing']['get']['responses'][200]['content']['application/json'];
+/** Billing returns same shape as record payment response (invoice + payments), or null */
+type BillingResponse = RecordPaymentResponse | null;
 type UpdateEncounterPrepCommandRequest =
   NonNullable<
     paths['/lims/commands/updateEncounterPrep']['post']['requestBody']
@@ -660,8 +660,10 @@ export default function EncounterDetailPage() {
   } = useQuery<BillingResponse | null>({
     queryKey: ['encounter-billing', encounterId],
     enabled: Boolean(encounterId),
-    queryFn: async () => {
-      const { data, error } = await client.GET('/encounters/{id}/billing', {
+    queryFn: async (): Promise<BillingResponse | null> => {
+      // Path exists in OpenAPI; generated PathsWithMethod may omit it
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (client as any).GET('/encounters/{id}/billing', {
         params: { path: { id: encounterId } },
       });
 
@@ -669,7 +671,7 @@ export default function EncounterDetailPage() {
         throw new Error(parseApiError(error, 'Failed to load billing').message);
       }
 
-      return data ?? null;
+      return (data ?? null) as BillingResponse | null;
     },
   });
 

@@ -2,111 +2,131 @@
 
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { client } from '@/lib/api';
+import { AdminCard } from '@/components/admin/AdminCard';
+import { FeatureGate } from '@/components/admin/FeatureGate';
+import { NoticeBanner } from '@/components/admin/NoticeBanner';
+import { PageHeader } from '@/components/admin/PageHeader';
+import { StatusPill } from '@/components/admin/StatusPill';
+import { adminRoutes } from '@/lib/admin/routes';
 import { parseApiError } from '@/lib/api-errors';
+import { client } from '@/lib/sdk/client';
+import { adminKeys } from '@/lib/sdk/hooks';
 import type { paths } from '@vexel/contracts';
 
 type AdminOverviewResponse =
   paths['/admin/overview']['get']['responses'][200]['content']['application/json'];
 
-export default function AdminPage() {
+export default function AdminDashboardPage() {
   const { data, isLoading, error } = useQuery({
-    queryKey: ['admin', 'overview'],
+    queryKey: adminKeys.overview(),
     queryFn: async () => {
-      const { data: res, error: apiError } = await client.GET('/admin/overview');
+      const { data: response, error: apiError } = await client.GET('/admin/overview');
       if (apiError) {
-        throw new Error(
-          parseApiError(apiError, 'Failed to load admin overview').message,
-        );
+        throw new Error(parseApiError(apiError, 'Failed to load admin dashboard').message);
       }
-      return res;
+      return response as AdminOverviewResponse;
     },
   });
 
-  if (isLoading) {
-    return (
-      <div className="p-8">
-        <h1 className="text-2xl font-bold mb-4">Admin Overview</h1>
-        <p>Loading...</p>
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div className="p-8">
-        <h1 className="text-2xl font-bold mb-4">Admin Overview</h1>
-        <p className="text-red-600">
-          {error instanceof Error ? error.message : 'Failed to load overview'}
-        </p>
-      </div>
-    );
-  }
-
-  const overview = data as AdminOverviewResponse;
-  const counts = overview?.counts ?? {};
-  const byStatus = counts.encounters_by_status ?? {};
-  const system = overview?.system ?? {};
-  const pdfHealth = system.pdf_service_health;
-  const catalog = overview?.catalog ?? {};
-  const features = overview?.features ?? {};
+  const counts = data?.counts;
+  const statusEntries = Object.entries(counts?.encounters_by_status ?? {});
+  const featureEntries = Object.entries(data?.features ?? {});
 
   return (
-    <div className="p-8">
-      <h1 className="text-2xl font-bold mb-4">Admin Overview</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <div className="rounded border bg-white p-4 shadow">
-          <h2 className="text-lg font-semibold mb-2">Encounters by status</h2>
-          <ul className="text-sm space-y-1">
-            {Object.entries(byStatus).map(([status, count]) => (
-              <li key={status}>
-                {status}: {count}
-              </li>
-            ))}
-            {Object.keys(byStatus).length === 0 && (
-              <li className="text-gray-500">No data</li>
-            )}
-          </ul>
-        </div>
-        <div className="rounded border bg-white p-4 shadow">
-          <h2 className="text-lg font-semibold mb-2">Queue &amp; published</h2>
-          <p className="text-sm">
-            Verification queue: <strong>{counts.verification_queue_count ?? 0}</strong>
+    <div className="space-y-6">
+      <PageHeader
+        title="Dashboard"
+        subtitle="Tenant-scoped operational snapshot for admin workflows."
+        actions={
+          <>
+            <Link
+              href={adminRoutes.businessOverview}
+              className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm font-medium text-[var(--text)]"
+            >
+              Business & Users
+            </Link>
+            <Link
+              href={adminRoutes.catalogOverview}
+              className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-foreground)]"
+            >
+              Catalog Settings
+            </Link>
+          </>
+        }
+      />
+
+      {error ? (
+        <NoticeBanner title="Unable to load dashboard overview" tone="warning">
+          {error instanceof Error ? error.message : 'Unknown error'}
+        </NoticeBanner>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
+        <AdminCard title="Verification Queue">
+          <p className="text-3xl font-semibold">{isLoading ? '...' : counts?.verification_queue_count ?? 0}</p>
+          <p className="mt-1 text-sm text-[var(--muted)]">Items awaiting verification</p>
+        </AdminCard>
+
+        <AdminCard title="Published (24h)">
+          <p className="text-3xl font-semibold">{isLoading ? '...' : counts?.published_last_24h_count ?? 0}</p>
+          <p className="mt-1 text-sm text-[var(--muted)]">Reports published in the last day</p>
+        </AdminCard>
+
+        <AdminCard title="Catalog Coverage">
+          <p className="text-3xl font-semibold">{isLoading ? '...' : data?.catalog?.tests_count ?? 0}</p>
+          <p className="mt-1 text-sm text-[var(--muted)]">Configured tests</p>
+        </AdminCard>
+
+        <AdminCard title="PDF Service Health">
+          <div className="flex items-center gap-2">
+            <StatusPill status={isLoading ? 'pending' : data?.system?.pdf_service_health?.status} />
+          </div>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Last checked:{' '}
+            {data?.system?.pdf_service_health?.last_checked_at
+              ? new Date(data.system.pdf_service_health.last_checked_at).toLocaleString()
+              : '—'}
           </p>
-          <p className="text-sm">
-            Published last 24h: <strong>{counts.published_last_24h_count ?? 0}</strong>
-          </p>
-        </div>
-        <div className="rounded border bg-white p-4 shadow">
-          <h2 className="text-lg font-semibold mb-2">PDF service</h2>
-          <p className="text-sm">
-            Status: <strong>{pdfHealth?.status ?? '—'}</strong>
-          </p>
-          <p className="text-sm text-gray-600">
-            Last checked: {pdfHealth?.last_checked_at ? new Date(pdfHealth.last_checked_at).toLocaleString() : '—'}
-          </p>
-        </div>
-        <div className="rounded border bg-white p-4 shadow">
-          <h2 className="text-lg font-semibold mb-2">Catalog</h2>
-          <p className="text-sm">Tests: {catalog.tests_count ?? 0}</p>
-          <p className="text-sm">Parameters: {catalog.parameters_count ?? 0}</p>
-        </div>
-        <div className="rounded border bg-white p-4 shadow md:col-span-2">
-          <h2 className="text-lg font-semibold mb-2">Feature flags (read-only)</h2>
-          <ul className="text-sm flex flex-wrap gap-x-4 gap-y-1">
-            {Object.entries(features).map(([key, value]) => (
-              <li key={key}>
-                {key}: <strong>{value ? 'on' : 'off'}</strong>
-              </li>
-            ))}
-            {Object.keys(features).length === 0 && (
-              <li className="text-gray-500">None</li>
-            )}
-          </ul>
-        </div>
+        </AdminCard>
       </div>
-      <Link href="/patients" className="text-blue-600 hover:underline">
-        Back to patients
-      </Link>
+
+      <FeatureGate featureKey="platform.audit">
+        <AdminCard title="Encounter Status Breakdown" subtitle="Derived status counts from tenant data.">
+          {statusEntries.length === 0 ? (
+            <p className="text-sm text-[var(--muted)]">No encounter status data available.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {statusEntries.map(([status, value]) => (
+                <span
+                  key={status}
+                  className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm"
+                >
+                  <StatusPill status={status} />
+                  <strong>{value}</strong>
+                </span>
+              ))}
+            </div>
+          )}
+        </AdminCard>
+      </FeatureGate>
+
+      <AdminCard title="Feature Flags" subtitle="Backend-authoritative toggles exposed for current tenant.">
+        {featureEntries.length === 0 ? (
+          <p className="text-sm text-[var(--muted)]">No feature flags returned from API.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {featureEntries.map(([key, enabled]) => (
+              <span
+                key={key}
+                className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm"
+              >
+                <span className="font-medium">{key}</span>
+                <StatusPill status={enabled ? 'enabled' : 'inactive'} />
+              </span>
+            ))}
+          </div>
+        )}
+      </AdminCard>
     </div>
   );
 }

@@ -1,4 +1,11 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { TenantGuard } from '../common/guards/tenant.guard';
 import { UpdateEncounterPrepCommandDto } from './dto/update-encounter-prep-command.dto';
 import { EncountersService } from './encounters.service';

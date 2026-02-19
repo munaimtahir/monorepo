@@ -324,25 +324,27 @@ function buildReferenceText(parameter: {
   return '-';
 }
 
-function buildLabStructuredPayload(encounter: EncounterWithRelations): JsonRecord {
+function buildLabStructuredPayload(
+  encounter: EncounterWithRelations,
+): JsonRecord {
   const sortedOrderItems = [...(encounter.labOrderItems ?? [])].sort(
     (left, right) => {
       const departmentOrder = left.test.department.localeCompare(
         right.test.department,
       );
-    if (departmentOrder !== 0) {
-      return departmentOrder;
-    }
+      if (departmentOrder !== 0) {
+        return departmentOrder;
+      }
 
-    const nameOrder = left.test.name.localeCompare(right.test.name);
-    if (nameOrder !== 0) {
-      return nameOrder;
-    }
+      const nameOrder = left.test.name.localeCompare(right.test.name);
+      if (nameOrder !== 0) {
+        return nameOrder;
+      }
 
-    const codeOrder = left.test.code.localeCompare(right.test.code);
-    if (codeOrder !== 0) {
-      return codeOrder;
-    }
+      const codeOrder = left.test.code.localeCompare(right.test.code);
+      if (codeOrder !== 0) {
+        return codeOrder;
+      }
 
       return left.id.localeCompare(right.id);
     },

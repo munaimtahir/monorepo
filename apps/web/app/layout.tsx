@@ -22,6 +22,9 @@ export default function RootLayout({
                     <Link href="/patients" className="text-blue-600 hover:underline">
                         Patients
                     </Link>
+                    <Link href="/operator/worklist" className="text-blue-600 hover:underline">
+                        Operator
+                    </Link>
                     <Link href="/verification" className="text-blue-600 hover:underline">
                         Verification
                     </Link>

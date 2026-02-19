@@ -56,4 +56,3 @@ describe('lab catalog integrity utilities', () => {
     }
   });
 });
-

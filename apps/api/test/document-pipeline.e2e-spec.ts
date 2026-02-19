@@ -141,7 +141,10 @@ class InMemoryStorageAdapter implements DocumentStorageAdapter {
     return { storageKey };
   }
 
-  async getPdf(input: { tenantId: string; storageKey: string }): Promise<Buffer> {
+  async getPdf(input: {
+    tenantId: string;
+    storageKey: string;
+  }): Promise<Buffer> {
     if (!input.storageKey.startsWith(`${input.tenantId}/`)) {
       throw new Error('storage key does not belong to tenant');
     }
@@ -155,7 +158,10 @@ class InMemoryStorageAdapter implements DocumentStorageAdapter {
   }
 }
 
-function findPatientById(state: MemoryState, id: string): PatientRecord | undefined {
+function findPatientById(
+  state: MemoryState,
+  id: string,
+): PatientRecord | undefined {
   return state.patients.find((patient) => patient.id === id);
 }
 
@@ -245,15 +251,21 @@ function createPrismaMock(state: MemoryState) {
           skip = 0,
           take = 20,
         }: {
-          where: { tenantId: string; OR?: Array<{ name?: { contains: string } } | { regNo?: { contains: string } }> };
+          where: {
+            tenantId: string;
+            OR?: Array<
+              { name?: { contains: string } } | { regNo?: { contains: string } }
+            >;
+          };
           skip?: number;
           take?: number;
         }) => {
-          const query = where.OR?.[0] && 'name' in where.OR[0]
-            ? where.OR[0].name?.contains?.toLowerCase() ?? ''
-            : where.OR?.[1] && 'regNo' in where.OR[1]
-              ? where.OR[1].regNo?.contains?.toLowerCase() ?? ''
-              : '';
+          const query =
+            where.OR?.[0] && 'name' in where.OR[0]
+              ? (where.OR[0].name?.contains?.toLowerCase() ?? '')
+              : where.OR?.[1] && 'regNo' in where.OR[1]
+                ? (where.OR[1].regNo?.contains?.toLowerCase() ?? '')
+                : '';
 
           const scoped = state.patients
             .filter((patient) => patient.tenantId === where.tenantId)
@@ -276,13 +288,19 @@ function createPrismaMock(state: MemoryState) {
         async ({
           where,
         }: {
-          where: { tenantId: string; OR?: Array<{ name?: { contains: string } } | { regNo?: { contains: string } }> };
+          where: {
+            tenantId: string;
+            OR?: Array<
+              { name?: { contains: string } } | { regNo?: { contains: string } }
+            >;
+          };
         }) => {
-          const query = where.OR?.[0] && 'name' in where.OR[0]
-            ? where.OR[0].name?.contains?.toLowerCase() ?? ''
-            : where.OR?.[1] && 'regNo' in where.OR[1]
-              ? where.OR[1].regNo?.contains?.toLowerCase() ?? ''
-              : '';
+          const query =
+            where.OR?.[0] && 'name' in where.OR[0]
+              ? (where.OR[0].name?.contains?.toLowerCase() ?? '')
+              : where.OR?.[1] && 'regNo' in where.OR[1]
+                ? (where.OR[1].regNo?.contains?.toLowerCase() ?? '')
+                : '';
 
           return state.patients
             .filter((patient) => patient.tenantId === where.tenantId)
@@ -359,7 +377,9 @@ function createPrismaMock(state: MemoryState) {
             .filter((encounter) =>
               where.patientId ? encounter.patientId === where.patientId : true,
             )
-            .filter((encounter) => (where.type ? encounter.type === where.type : true))
+            .filter((encounter) =>
+              where.type ? encounter.type === where.type : true,
+            )
             .filter((encounter) =>
               where.status ? encounter.status === where.status : true,
             )
@@ -384,7 +404,9 @@ function createPrismaMock(state: MemoryState) {
             .filter((encounter) =>
               where.patientId ? encounter.patientId === where.patientId : true,
             )
-            .filter((encounter) => (where.type ? encounter.type === where.type : true))
+            .filter((encounter) =>
+              where.type ? encounter.type === where.type : true,
+            )
             .filter((encounter) =>
               where.status ? encounter.status === where.status : true,
             ).length;
@@ -435,7 +457,9 @@ function createPrismaMock(state: MemoryState) {
             endedAt?: Date;
           };
         }) => {
-          const encounter = state.encounters.find((item) => item.id === where.id);
+          const encounter = state.encounters.find(
+            (item) => item.id === where.id,
+          );
           if (!encounter) {
             throw new Error('encounter not found');
           }
@@ -504,11 +528,17 @@ function createPrismaMock(state: MemoryState) {
                 return false;
               }
 
-              if (where.encounterId && document.encounterId !== where.encounterId) {
+              if (
+                where.encounterId &&
+                document.encounterId !== where.encounterId
+              ) {
                 return false;
               }
 
-              if (where.documentType && document.documentType !== where.documentType) {
+              if (
+                where.documentType &&
+                document.documentType !== where.documentType
+              ) {
                 return false;
               }
 
@@ -519,7 +549,10 @@ function createPrismaMock(state: MemoryState) {
                 return false;
               }
 
-              if (where.payloadHash && document.payloadHash !== where.payloadHash) {
+              if (
+                where.payloadHash &&
+                document.payloadHash !== where.payloadHash
+              ) {
                 return false;
               }
 
@@ -637,7 +670,9 @@ function createPrismaMock(state: MemoryState) {
           create,
           update,
         }: {
-          where: { tenantId_encounterId: { tenantId: string; encounterId: string } };
+          where: {
+            tenantId_encounterId: { tenantId: string; encounterId: string };
+          };
           create: {
             tenantId: string;
             encounterId: string;
@@ -712,7 +747,10 @@ function createPrismaMock(state: MemoryState) {
           if (item.tenantId !== where.tenantId) {
             return false;
           }
-          if (Array.isArray(encounterIds) && !encounterIds.includes(item.encounterId)) {
+          if (
+            Array.isArray(encounterIds) &&
+            !encounterIds.includes(item.encounterId)
+          ) {
             return false;
           }
           return true;
@@ -726,7 +764,9 @@ function createPrismaMock(state: MemoryState) {
           create,
           update,
         }: {
-          where: { tenantId_encounterId: { tenantId: string; encounterId: string } };
+          where: {
+            tenantId_encounterId: { tenantId: string; encounterId: string };
+          };
           create: {
             tenantId: string;
             encounterId: string;
@@ -796,8 +836,9 @@ function createPrismaMock(state: MemoryState) {
         },
       ),
     },
-    $transaction: jest.fn(async (operation: (tx: Record<string, unknown>) => Promise<unknown>) =>
-      operation(prismaMock),
+    $transaction: jest.fn(
+      async (operation: (tx: Record<string, unknown>) => Promise<unknown>) =>
+        operation(prismaMock),
     ),
   };
 
@@ -845,55 +886,58 @@ describe('Document pipeline (e2e)', () => {
   const storageAdapter = new InMemoryStorageAdapter(state.files);
 
   const queueAdapter: DocumentRenderQueue = {
-    enqueueDocumentRender: jest.fn(async (payload: DocumentRenderJobPayload) => {
-      const document = state.documents.find(
-        (item) =>
-          item.id === payload.documentId &&
-          item.tenantId === payload.tenantId &&
-          item.status === 'QUEUED',
-      );
+    enqueueDocumentRender: jest.fn(
+      async (payload: DocumentRenderJobPayload) => {
+        const document = state.documents.find(
+          (item) =>
+            item.id === payload.documentId &&
+            item.tenantId === payload.tenantId &&
+            item.status === 'QUEUED',
+        );
 
-      if (!document) {
-        return;
-      }
+        if (!document) {
+          return;
+        }
 
-      const payloadMeta =
-        typeof document.payloadJson === 'object' &&
-        document.payloadJson !== null &&
-        typeof (document.payloadJson as Record<string, unknown>).meta === 'object' &&
-        (document.payloadJson as Record<string, unknown>).meta !== null
-          ? ((document.payloadJson as Record<string, unknown>)
-              .meta as Record<string, unknown>)
-          : null;
-      const templateKey =
-        payloadMeta && typeof payloadMeta.templateKey === 'string'
-          ? payloadMeta.templateKey
-          : 'ENCOUNTER_SUMMARY_V1';
+        const payloadMeta =
+          typeof document.payloadJson === 'object' &&
+          document.payloadJson !== null &&
+          typeof document.payloadJson.meta === 'object' &&
+          document.payloadJson.meta !== null
+            ? (document.payloadJson.meta as Record<string, unknown>)
+            : null;
+        const templateKey =
+          payloadMeta && typeof payloadMeta.templateKey === 'string'
+            ? payloadMeta.templateKey
+            : 'ENCOUNTER_SUMMARY_V1';
 
-      const deterministicPdf = Buffer.from(
-        `${templateKey}|t${document.templateVersion}|p${document.payloadVersion}|${canonicalizeJson(document.payloadJson)}`,
-      );
-      const { storageKey } = await storageAdapter.putPdf({
-        tenantId: payload.tenantId,
-        documentId: payload.documentId,
-        bytes: deterministicPdf,
-      });
+        const deterministicPdf = Buffer.from(
+          `${templateKey}|t${document.templateVersion}|p${document.payloadVersion}|${canonicalizeJson(document.payloadJson)}`,
+        );
+        const { storageKey } = await storageAdapter.putPdf({
+          tenantId: payload.tenantId,
+          documentId: payload.documentId,
+          bytes: deterministicPdf,
+        });
 
-      document.status = 'RENDERED';
-      document.storageBackend = 'LOCAL';
-      document.storageKey = storageKey;
-      document.pdfHash = sha256Hex(deterministicPdf);
-      document.renderedAt = new Date();
-      document.errorCode = null;
-      document.errorMessage = null;
+        document.status = 'RENDERED';
+        document.storageBackend = 'LOCAL';
+        document.storageKey = storageKey;
+        document.pdfHash = sha256Hex(deterministicPdf);
+        document.renderedAt = new Date();
+        document.errorCode = null;
+        document.errorMessage = null;
 
-      const encounter = state.encounters.find(
-        (item) => item.id === document.encounterId && item.tenantId === payload.tenantId,
-      );
-      if (encounter && encounter.status === 'FINALIZED') {
-        encounter.status = 'DOCUMENTED';
-      }
-    }),
+        const encounter = state.encounters.find(
+          (item) =>
+            item.id === document.encounterId &&
+            item.tenantId === payload.tenantId,
+        );
+        if (encounter && encounter.status === 'FINALIZED') {
+          encounter.status = 'DOCUMENTED';
+        }
+      },
+    ),
   };
 
   beforeAll(async () => {
@@ -1241,7 +1285,9 @@ describe('Document pipeline (e2e)', () => {
       .expect(200);
 
     expect(secondDocumentResponse.body.id).toBe(documentResponse.body.id);
-    expect(secondDocumentResponse.body.pdfHash).toBe(documentResponse.body.pdfHash);
+    expect(secondDocumentResponse.body.pdfHash).toBe(
+      documentResponse.body.pdfHash,
+    );
     expect(secondDocumentResponse.body.payloadHash).toBe(
       documentResponse.body.payloadHash,
     );

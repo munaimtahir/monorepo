@@ -45,4 +45,3 @@ export function parseMockToken(token: string): MockTokenClaims | null {
     permissions,
   };
 }
-

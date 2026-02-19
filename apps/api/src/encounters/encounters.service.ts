@@ -941,7 +941,10 @@ export class EncountersService {
         },
       }),
     ]);
-    const itemsByEncounterId = new Map<string, { status: LabOrderItemStatus }[]>();
+    const itemsByEncounterId = new Map<
+      string,
+      { status: LabOrderItemStatus }[]
+    >();
     const prepByEncounterId = new Map<string, boolean>(
       preps.map((prep) => [prep.encounterId, Boolean(prep.collectedAt)]),
     );
@@ -959,7 +962,10 @@ export class EncountersService {
       }
       const items = itemsByEncounterId.get(e.id) ?? [];
       const hasPublishedReport = publishedEncounterIds.has(e.id);
-      const labEncounterStatus = deriveLabEncounterStatus(items, hasPublishedReport);
+      const labEncounterStatus = deriveLabEncounterStatus(
+        items,
+        hasPublishedReport,
+      );
       return {
         ...e,
         labEncounterStatus,
@@ -1056,9 +1062,7 @@ export class EncountersService {
     }
   }
 
-  private toLabPrepInput(
-    payload: Record<string, unknown>,
-  ): {
+  private toLabPrepInput(payload: Record<string, unknown>): {
     specimenType?: string | null;
     collectedAt?: Date | null;
     collectorName?: string | null;
@@ -1079,9 +1083,7 @@ export class EncountersService {
     };
   }
 
-  private toRadPrepInput(
-    payload: Record<string, unknown>,
-  ): {
+  private toRadPrepInput(payload: Record<string, unknown>): {
     fastingRequired?: boolean | null;
     fastingConfirmed?: boolean | null;
     contrastPlanned?: boolean | null;
@@ -1108,14 +1110,15 @@ export class EncountersService {
       fastingConfirmed: this.readNullableBoolean(payload, 'fastingConfirmed'),
       contrastPlanned: this.readNullableBoolean(payload, 'contrastPlanned'),
       creatinineChecked: this.readNullableBoolean(payload, 'creatinineChecked'),
-      pregnancyScreenDone: this.readNullableBoolean(payload, 'pregnancyScreenDone'),
+      pregnancyScreenDone: this.readNullableBoolean(
+        payload,
+        'pregnancyScreenDone',
+      ),
       notes: this.readNullableString(payload, 'notes'),
     };
   }
 
-  private toOpdPrepInput(
-    payload: Record<string, unknown>,
-  ): {
+  private toOpdPrepInput(payload: Record<string, unknown>): {
     systolicBp?: number | null;
     diastolicBp?: number | null;
     pulse?: number | null;
@@ -1153,9 +1156,7 @@ export class EncountersService {
     };
   }
 
-  private toBbPrepInput(
-    payload: Record<string, unknown>,
-  ): {
+  private toBbPrepInput(payload: Record<string, unknown>): {
     sampleReceivedAt?: Date | null;
     aboGroup?: string | null;
     rhType?: string | null;
@@ -1181,15 +1182,16 @@ export class EncountersService {
       sampleReceivedAt: this.readNullableDate(payload, 'sampleReceivedAt'),
       aboGroup: this.readNullableString(payload, 'aboGroup'),
       rhType: this.readNullableString(payload, 'rhType'),
-      componentRequested: this.readNullableString(payload, 'componentRequested'),
+      componentRequested: this.readNullableString(
+        payload,
+        'componentRequested',
+      ),
       unitsRequested: this.readNullableInteger(payload, 'unitsRequested'),
       urgency: this.readNullableBbUrgency(payload, 'urgency'),
     };
   }
 
-  private toIpdPrepInput(
-    payload: Record<string, unknown>,
-  ): {
+  private toIpdPrepInput(payload: Record<string, unknown>): {
     admissionReason?: string | null;
     ward?: string | null;
     bed?: string | null;
@@ -1210,9 +1212,7 @@ export class EncountersService {
     };
   }
 
-  private toLabMainInput(
-    payload: Record<string, unknown>,
-  ): {
+  private toLabMainInput(payload: Record<string, unknown>): {
     resultSummary?: string | null;
     verifiedBy?: string | null;
     verifiedAt?: Date | null;
@@ -1231,9 +1231,7 @@ export class EncountersService {
     };
   }
 
-  private toRadMainInput(
-    payload: Record<string, unknown>,
-  ): {
+  private toRadMainInput(payload: Record<string, unknown>): {
     reportText?: string | null;
     impression?: string | null;
     radiologistName?: string | null;
@@ -1254,9 +1252,7 @@ export class EncountersService {
     };
   }
 
-  private toOpdMainInput(
-    payload: Record<string, unknown>,
-  ): {
+  private toOpdMainInput(payload: Record<string, unknown>): {
     chiefComplaint?: string | null;
     assessment?: string | null;
     plan?: string | null;
@@ -1277,9 +1273,7 @@ export class EncountersService {
     };
   }
 
-  private toBbMainInput(
-    payload: Record<string, unknown>,
-  ): {
+  private toBbMainInput(payload: Record<string, unknown>): {
     crossmatchResult?: BbCrossmatchResult | null;
     componentIssued?: string | null;
     unitsIssued?: number | null;
@@ -1288,7 +1282,13 @@ export class EncountersService {
   } {
     this.assertOnlyAllowedKeys(
       payload,
-      ['crossmatchResult', 'componentIssued', 'unitsIssued', 'issuedAt', 'issueNotes'],
+      [
+        'crossmatchResult',
+        'componentIssued',
+        'unitsIssued',
+        'issuedAt',
+        'issueNotes',
+      ],
       'BB',
       'main',
     );
@@ -1305,9 +1305,7 @@ export class EncountersService {
     };
   }
 
-  private toIpdMainInput(
-    payload: Record<string, unknown>,
-  ): {
+  private toIpdMainInput(payload: Record<string, unknown>): {
     dailyNote?: string | null;
     orders?: string | null;
   } {
@@ -1409,12 +1407,16 @@ export class EncountersService {
     }
 
     if (typeof value !== 'string') {
-      throw new BadRequestException(`${key} must be an ISO date-time string or null`);
+      throw new BadRequestException(
+        `${key} must be an ISO date-time string or null`,
+      );
     }
 
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) {
-      throw new BadRequestException(`${key} must be a valid ISO date-time string`);
+      throw new BadRequestException(
+        `${key} must be a valid ISO date-time string`,
+      );
     }
 
     return date;
@@ -1655,11 +1657,13 @@ export class EncountersService {
       payload: Record<string, unknown>;
     },
   ): Promise<void> {
-    const auditModel = (source as unknown as {
-      auditEvent?: {
-        create?: (args: unknown) => Promise<unknown>;
-      };
-    }).auditEvent;
+    const auditModel = (
+      source as unknown as {
+        auditEvent?: {
+          create?: (args: unknown) => Promise<unknown>;
+        };
+      }
+    ).auditEvent;
 
     if (!auditModel?.create) {
       return;
@@ -1683,6 +1687,9 @@ export class EncountersService {
       return type as EncounterType;
     }
 
-    throw new DomainException('INVALID_ENCOUNTER_TYPE', `Unsupported encounter type: ${type}`);
+    throw new DomainException(
+      'INVALID_ENCOUNTER_TYPE',
+      `Unsupported encounter type: ${type}`,
+    );
   }
 }

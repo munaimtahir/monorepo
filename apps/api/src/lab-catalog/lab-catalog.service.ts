@@ -60,11 +60,7 @@ export class LabCatalogService {
     const [data, total] = await Promise.all([
       this.prisma.labTestDefinition.findMany({
         where,
-        orderBy: [
-          { department: 'asc' },
-          { name: 'asc' },
-          { code: 'asc' },
-        ],
+        orderBy: [{ department: 'asc' }, { name: 'asc' }, { code: 'asc' }],
       }),
       this.prisma.labTestDefinition.count({ where }),
     ]);

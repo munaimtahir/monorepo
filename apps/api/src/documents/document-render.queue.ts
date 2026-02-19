@@ -24,16 +24,21 @@ export class BullMqDocumentRenderQueue
       return this.queue;
     }
 
-    this.queue = new Queue<DocumentRenderJobPayload>(DOCUMENT_RENDER_QUEUE_NAME, {
-      connection: {
-        url: process.env.REDIS_URL ?? 'redis://localhost:6379',
+    this.queue = new Queue<DocumentRenderJobPayload>(
+      DOCUMENT_RENDER_QUEUE_NAME,
+      {
+        connection: {
+          url: process.env.REDIS_URL ?? 'redis://localhost:6379',
+        },
       },
-    });
+    );
 
     return this.queue;
   }
 
-  async enqueueDocumentRender(payload: DocumentRenderJobPayload): Promise<void> {
+  async enqueueDocumentRender(
+    payload: DocumentRenderJobPayload,
+  ): Promise<void> {
     await this.getQueue().add('DOCUMENT_RENDER', payload, {
       jobId: `${payload.tenantId}__${payload.documentId}`,
       attempts: 5,

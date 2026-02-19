@@ -24,7 +24,10 @@ export class LocalStorageAdapter implements DocumentStorageAdapter {
   }
 
   async getPdf(input: GetPdfInput): Promise<Buffer> {
-    const sourcePath = this.resolveStoragePath(input.storageKey, input.tenantId);
+    const sourcePath = this.resolveStoragePath(
+      input.storageKey,
+      input.tenantId,
+    );
     return readFile(sourcePath);
   }
 
@@ -43,7 +46,10 @@ export class LocalStorageAdapter implements DocumentStorageAdapter {
     const rootPath = resolve(this.baseDir);
     const absolutePath = resolve(join(rootPath, normalizedKey));
 
-    if (!absolutePath.startsWith(`${rootPath}${sep}`) && absolutePath !== rootPath) {
+    if (
+      !absolutePath.startsWith(`${rootPath}${sep}`) &&
+      absolutePath !== rootPath
+    ) {
       throw new Error('invalid storage path');
     }
 

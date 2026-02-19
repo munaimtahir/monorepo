@@ -27,10 +27,7 @@ export class DomainException extends HttpException {
       errorPayload.error.details = details;
     }
 
-    super(
-      errorPayload,
-      HttpStatus.CONFLICT,
-    );
+    super(errorPayload, HttpStatus.CONFLICT);
     this.details = details;
   }
 }

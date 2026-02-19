@@ -5,4 +5,3 @@ export const REQUIRED_PERMISSIONS_METADATA_KEY = 'required_permissions';
 
 export const RequirePermissions = (...permissions: PermissionKey[]) =>
   SetMetadata(REQUIRED_PERMISSIONS_METADATA_KEY, permissions);
-
