@@ -11,6 +11,10 @@ import { REQUEST } from '@nestjs/core';
 import type { Request } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { DomainException } from '../common/errors/domain.exception';
+import {
+  traceSpan,
+  writeWorkflowTrace,
+} from '../common/observability/workflow-trace';
 import { PrismaService } from '../prisma/prisma.service';
 import { buildPayloadForDocumentType } from './document-payload.builder';
 import {
@@ -50,135 +54,175 @@ export class DocumentsService {
     return tenantId;
   }
 
-  async queueEncounterDocument(encounterId: string): Promise<DocumentResponse> {
+  async queueEncounterDocument(
+    encounterId: string,
+    forcedDocumentType?: RequestedDocumentType,
+  ): Promise<DocumentResponse> {
     const tenantId = this.tenantId;
-    const documentType = this.getRequestedDocumentTypeFromBody();
-
-    const encounter = await this.prisma.encounter.findFirst({
-      where: {
-        id: encounterId,
+    return traceSpan(
+      {
+        span: 'publish_report.pipeline',
+        requestId: this.cls.get<string>('REQUEST_ID'),
         tenantId,
-      },
-      include: {
-        patient: true,
-        labPrep: true,
-        radPrep: true,
-        opdPrep: true,
-        bbPrep: true,
-        ipdPrep: true,
-        labMain: true,
-        radMain: true,
-        opdMain: true,
-        bbMain: true,
-        ipdMain: true,
-      },
-    });
-
-    if (!encounter) {
-      throw new NotFoundException('Encounter not found');
-    }
-
-    if (encounter.status !== 'FINALIZED' && encounter.status !== 'DOCUMENTED') {
-      throw new DomainException(
-        'ENCOUNTER_STATE_INVALID',
-        'Encounter must be FINALIZED before document generation',
-      );
-    }
-
-    const builtPayload = buildPayloadForDocumentType({
-      tenantId,
-      encounter,
-      documentType,
-    });
-    const payload = builtPayload.payload;
-    const payloadCanonicalJson = canonicalizeJson(payload);
-    const payloadHash = sha256HexFromText(payloadCanonicalJson);
-
-    let enqueueJob = false;
-
-    const document = await this.prisma.$transaction(async (tx) => {
-      const existing = await tx.document.findFirst({
-        where: {
-          tenantId,
+        metadata: {
           encounterId,
-          documentType: builtPayload.storedDocumentType,
-          templateVersion: builtPayload.templateVersion,
-          payloadHash,
         },
-      });
+      },
+      async () => {
+        const documentType =
+          forcedDocumentType ?? this.getRequestedDocumentTypeFromBody();
 
-      if (!existing) {
-        enqueueJob = true;
-        try {
-          return await tx.document.create({
-            data: {
+        const encounter = await this.prisma.encounter.findFirst({
+          where: {
+            id: encounterId,
+            tenantId,
+          },
+          include: {
+            patient: true,
+            labPrep: true,
+            radPrep: true,
+            opdPrep: true,
+            bbPrep: true,
+            ipdPrep: true,
+            labMain: true,
+            radMain: true,
+            opdMain: true,
+            bbMain: true,
+            ipdMain: true,
+            labOrderItems: {
+              include: {
+                test: {
+                  include: {
+                    parameters: true,
+                  },
+                },
+                results: true,
+              },
+            },
+          },
+        });
+
+        if (!encounter) {
+          throw new NotFoundException('Encounter not found');
+        }
+
+        if (
+          encounter.status !== 'FINALIZED' &&
+          encounter.status !== 'DOCUMENTED'
+        ) {
+          throw new DomainException(
+            'ENCOUNTER_STATE_INVALID',
+            'Encounter must be FINALIZED before document generation',
+          );
+        }
+
+        const builtPayload = buildPayloadForDocumentType({
+          tenantId,
+          encounter,
+          documentType,
+        });
+        const payload = builtPayload.payload;
+        const payloadCanonicalJson = canonicalizeJson(payload);
+        const payloadHash = sha256HexFromText(payloadCanonicalJson);
+
+        let enqueueJob = false;
+
+        const document = await this.prisma.$transaction(async (tx) => {
+          const existing = await tx.document.findFirst({
+            where: {
               tenantId,
               encounterId,
               documentType: builtPayload.storedDocumentType,
-              status: DocumentStatus.QUEUED,
-              payloadVersion: builtPayload.payloadVersion,
               templateVersion: builtPayload.templateVersion,
-              payloadJson: payload as Prisma.InputJsonValue,
               payloadHash,
-              storageBackend: StorageBackend.LOCAL,
             },
           });
-        } catch (error) {
-          if (
-            error instanceof Prisma.PrismaClientKnownRequestError &&
-            error.code === 'P2002'
-          ) {
-            const raced = await tx.document.findFirst({
-              where: {
-                tenantId,
-                encounterId,
-                documentType: builtPayload.storedDocumentType,
-                templateVersion: builtPayload.templateVersion,
-                payloadHash,
-              },
-            });
-            if (raced) {
-              enqueueJob = false;
-              return raced;
+
+          if (!existing) {
+            enqueueJob = true;
+            try {
+              return await tx.document.create({
+                data: {
+                  tenantId,
+                  encounterId,
+                  documentType: builtPayload.storedDocumentType,
+                  status: DocumentStatus.QUEUED,
+                  payloadVersion: builtPayload.payloadVersion,
+                  templateVersion: builtPayload.templateVersion,
+                  payloadJson: payload as Prisma.InputJsonValue,
+                  payloadHash,
+                  storageBackend: StorageBackend.LOCAL,
+                },
+              });
+            } catch (error) {
+              if (
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === 'P2002'
+              ) {
+                const raced = await tx.document.findFirst({
+                  where: {
+                    tenantId,
+                    encounterId,
+                    documentType: builtPayload.storedDocumentType,
+                    templateVersion: builtPayload.templateVersion,
+                    payloadHash,
+                  },
+                });
+                if (raced) {
+                  enqueueJob = false;
+                  return raced;
+                }
+              }
+
+              throw error;
             }
           }
 
-          throw error;
-        }
-      }
+          if (existing.status === DocumentStatus.FAILED) {
+            enqueueJob = true;
+            return tx.document.update({
+              where: {
+                id: existing.id,
+              },
+              data: {
+                status: DocumentStatus.QUEUED,
+                payloadJson: payload as Prisma.InputJsonValue,
+                payloadHash,
+                payloadVersion: builtPayload.payloadVersion,
+                templateVersion: builtPayload.templateVersion,
+                errorCode: null,
+                errorMessage: null,
+                renderedAt: null,
+                pdfHash: null,
+                storageKey: null,
+              },
+            });
+          }
 
-      if (existing.status === DocumentStatus.FAILED) {
-        enqueueJob = true;
-        return tx.document.update({
-          where: {
-            id: existing.id,
-          },
-          data: {
-            status: DocumentStatus.QUEUED,
-            payloadJson: payload as Prisma.InputJsonValue,
-            payloadHash,
-            payloadVersion: builtPayload.payloadVersion,
-            templateVersion: builtPayload.templateVersion,
-            errorCode: null,
-            errorMessage: null,
-            renderedAt: null,
-            pdfHash: null,
-            storageKey: null,
-          },
+          return existing;
         });
-      }
 
-      return existing;
-    });
+        if (enqueueJob && document.status === DocumentStatus.QUEUED) {
+          writeWorkflowTrace({
+            event: 'publish_report.enqueued',
+            requestId: this.cls.get<string>('REQUEST_ID') ?? null,
+            tenantId,
+            userId: null,
+            encounterId,
+            documentId: document.id,
+            documentType: document.documentType,
+            payloadHash: document.payloadHash,
+          });
 
-    if (enqueueJob && document.status === DocumentStatus.QUEUED) {
-      await this.queue.enqueueDocumentRender({
-        tenantId,
-        documentId: document.id,
-      });
-    }
+          await this.queue.enqueueDocumentRender({
+            tenantId,
+            documentId: document.id,
+          });
+        }
 
-    return toDocumentResponse(document);
+        return toDocumentResponse(document);
+      },
+    );
   }
 
   async getDocumentById(documentId: string): Promise<DocumentResponse> {

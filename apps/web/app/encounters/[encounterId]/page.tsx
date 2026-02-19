@@ -27,6 +27,23 @@ type DocumentCommandRequest =
     paths['/encounters/{id}:document']['post']['requestBody']
   >['content']['application/json'];
 type RequestedDocumentType = DocumentResponse['type'];
+type ListLabTestsResponse =
+  paths['/lab/tests']['get']['responses'][200]['content']['application/json'];
+type AddTestToEncounterRequest =
+  NonNullable<
+    paths['/encounters/{id}:lab-add-test']['post']['requestBody']
+  >['content']['application/json'];
+type ListEncounterLabTestsResponse =
+  paths['/encounters/{id}/lab-tests']['get']['responses'][200]['content']['application/json'];
+type LabOrderedTest = ListEncounterLabTestsResponse['data'][number];
+type EnterLabResultsRequest =
+  NonNullable<
+    paths['/encounters/{id}:lab-enter-results']['post']['requestBody']
+  >['content']['application/json'];
+type VerifyLabResultsRequest =
+  NonNullable<
+    paths['/encounters/{id}:lab-verify']['post']['requestBody']
+  >['content']['application/json'];
 
 type PrepFormState = {
   specimenType: string;
@@ -443,9 +460,17 @@ export default function EncounterDetailPage() {
   const [isGeneratingDocument, setIsGeneratingDocument] = useState(false);
   const [isRefreshingDocument, setIsRefreshingDocument] = useState(false);
   const [isDownloadingDocument, setIsDownloadingDocument] = useState(false);
+  const [isAddingLabTest, setIsAddingLabTest] = useState(false);
+  const [isPublishingLabReport, setIsPublishingLabReport] = useState(false);
+  const [savingLabOrderItemId, setSavingLabOrderItemId] = useState<string | null>(null);
+  const [verifyingLabOrderItemId, setVerifyingLabOrderItemId] = useState<string | null>(null);
   const [prepForm, setPrepForm] = useState<PrepFormState>(defaultPrepFormState);
   const [mainForm, setMainForm] = useState<MainFormState>(defaultMainFormState);
   const [documentMeta, setDocumentMeta] = useState<DocumentResponse | null>(null);
+  const [selectedLabTestId, setSelectedLabTestId] = useState('');
+  const [labResultDrafts, setLabResultDrafts] = useState<
+    Record<string, Record<string, string>>
+  >({});
   const [selectedDocumentType, setSelectedDocumentType] =
     useState<RequestedDocumentType>('ENCOUNTER_SUMMARY_V1');
 
@@ -550,6 +575,57 @@ export default function EncounterDetailPage() {
 
       if (!data) {
         throw new Error('Main data not found');
+      }
+
+      return data;
+    },
+  });
+
+  const {
+    data: labCatalog,
+    isLoading: labCatalogLoading,
+    error: labCatalogError,
+  } = useQuery<ListLabTestsResponse>({
+    queryKey: ['lab-catalog-tests'],
+    enabled: encounter?.type === 'LAB',
+    queryFn: async () => {
+      const { data, error } = await client.GET('/lab/tests');
+
+      if (error) {
+        throw new Error(parseApiError(error, 'Failed to load LAB catalog').message);
+      }
+
+      if (!data) {
+        return { data: [], total: 0 };
+      }
+
+      return data;
+    },
+  });
+
+  const {
+    data: encounterLabTests,
+    isLoading: encounterLabTestsLoading,
+    error: encounterLabTestsError,
+    refetch: refetchEncounterLabTests,
+  } = useQuery<ListEncounterLabTestsResponse>({
+    queryKey: ['encounter-lab-tests', encounterId],
+    enabled: Boolean(encounterId) && encounter?.type === 'LAB',
+    queryFn: async () => {
+      const { data, error } = await client.GET('/encounters/{id}/lab-tests', {
+        params: {
+          path: { id: encounterId },
+        },
+      });
+
+      if (error) {
+        throw new Error(
+          parseApiError(error, 'Failed to load encounter LAB tests').message,
+        );
+      }
+
+      if (!data) {
+        return { data: [], total: 0 };
       }
 
       return data;
@@ -736,6 +812,12 @@ export default function EncounterDetailPage() {
     return documentTypeOptions(encounter.type);
   }, [encounter]);
 
+  const orderedLabTests: LabOrderedTest[] = encounterLabTests?.data ?? [];
+  const hasOrderedLabTests = orderedLabTests.length > 0;
+  const allLabTestsVerified =
+    hasOrderedLabTests &&
+    orderedLabTests.every((item) => item.orderItem.status === 'VERIFIED');
+
   useEffect(() => {
     if (!encounter) {
       return;
@@ -743,6 +825,43 @@ export default function EncounterDetailPage() {
 
     setSelectedDocumentType(defaultDocumentType(encounter.type));
   }, [encounter?.id]);
+
+  useEffect(() => {
+    if (!labCatalog?.data?.length) {
+      return;
+    }
+
+    setSelectedLabTestId((previous) => previous || labCatalog.data[0].id);
+  }, [labCatalog?.data]);
+
+  useEffect(() => {
+    if (!encounterLabTests?.data) {
+      return;
+    }
+
+    setLabResultDrafts((previous) => {
+      const nextDrafts: Record<string, Record<string, string>> = { ...previous };
+
+      for (const orderedTest of encounterLabTests.data) {
+        const existingDraft = nextDrafts[orderedTest.orderItem.id] ?? {};
+        const nextOrderDraft: Record<string, string> = { ...existingDraft };
+        const resultByParameterId = new Map(
+          orderedTest.results.map((result) => [result.parameterId, result.value]),
+        );
+
+        for (const parameter of orderedTest.parameters) {
+          if (nextOrderDraft[parameter.id] !== undefined) {
+            continue;
+          }
+          nextOrderDraft[parameter.id] = resultByParameterId.get(parameter.id) ?? '';
+        }
+
+        nextDrafts[orderedTest.orderItem.id] = nextOrderDraft;
+      }
+
+      return nextDrafts;
+    });
+  }, [encounterLabTests?.data]);
 
   if (encounterLoading) {
     return <div className="p-8">Loading encounter...</div>;
@@ -873,6 +992,146 @@ export default function EncounterDetailPage() {
     await Promise.all([refetchEncounter(), refetchMain()]);
   };
 
+  const addLabTestToEncounter = async () => {
+    if (!selectedLabTestId) {
+      setActionError('Select a LAB test first');
+      return;
+    }
+
+    setActionError('');
+    setActionSuccess('');
+    setIsAddingLabTest(true);
+
+    const body: AddTestToEncounterRequest = {
+      testId: selectedLabTestId,
+    };
+
+    const { error } = await client.POST('/encounters/{id}:lab-add-test', {
+      params: {
+        path: { id: encounter.id },
+      },
+      body,
+    });
+
+    setIsAddingLabTest(false);
+
+    if (error) {
+      setActionError(parseApiError(error, 'Failed to add LAB test').message);
+      return;
+    }
+
+    setActionSuccess('LAB test added to encounter');
+    await refetchEncounterLabTests();
+  };
+
+  const updateLabResultDraft = (
+    orderItemId: string,
+    parameterId: string,
+    value: string,
+  ) => {
+    setLabResultDrafts((previous) => ({
+      ...previous,
+      [orderItemId]: {
+        ...(previous[orderItemId] ?? {}),
+        [parameterId]: value,
+      },
+    }));
+  };
+
+  const submitLabOrderResults = async (orderedTest: LabOrderedTest) => {
+    setActionError('');
+    setActionSuccess('');
+    setSavingLabOrderItemId(orderedTest.orderItem.id);
+
+    const resultItems: EnterLabResultsRequest['results'] = orderedTest.parameters.map(
+      (parameter) => ({
+        parameterId: parameter.id,
+        value: labResultDrafts[orderedTest.orderItem.id]?.[parameter.id] ?? '',
+      }),
+    );
+
+    const body: EnterLabResultsRequest = {
+      orderItemId: orderedTest.orderItem.id,
+      results: resultItems,
+    };
+
+    const { error } = await client.POST('/encounters/{id}:lab-enter-results', {
+      params: {
+        path: { id: encounter.id },
+      },
+      body,
+    });
+
+    setSavingLabOrderItemId(null);
+
+    if (error) {
+      setActionError(parseApiError(error, 'Failed to enter LAB results').message);
+      return;
+    }
+
+    setActionSuccess(`Results saved for ${orderedTest.test.name}`);
+    await refetchEncounterLabTests();
+  };
+
+  const verifyLabOrderResults = async (orderedTest: LabOrderedTest) => {
+    setActionError('');
+    setActionSuccess('');
+    setVerifyingLabOrderItemId(orderedTest.orderItem.id);
+
+    const body: VerifyLabResultsRequest = {
+      orderItemId: orderedTest.orderItem.id,
+    };
+
+    const { error } = await client.POST('/encounters/{id}:lab-verify', {
+      params: {
+        path: { id: encounter.id },
+      },
+      body,
+    });
+
+    setVerifyingLabOrderItemId(null);
+
+    if (error) {
+      setActionError(parseApiError(error, 'Failed to verify LAB results').message);
+      return;
+    }
+
+    setActionSuccess(`Results verified for ${orderedTest.test.name}`);
+    await refetchEncounterLabTests();
+  };
+
+  const publishLabReport = async () => {
+    setActionError('');
+    setActionSuccess('');
+    setIsPublishingLabReport(true);
+
+    const { data, error } = await client.POST('/encounters/{id}:lab-publish', {
+      params: {
+        path: { id: encounter.id },
+      },
+    });
+
+    setIsPublishingLabReport(false);
+
+    if (error) {
+      setActionError(parseApiError(error, 'Failed to publish LAB report').message);
+      return;
+    }
+
+    if (!data) {
+      setActionError('Failed to publish LAB report');
+      return;
+    }
+
+    setDocumentMeta(data);
+    setActionSuccess(
+      data.status === 'RENDERED'
+        ? 'LAB report rendered and ready to download'
+        : `LAB report ${data.status.toLowerCase()}`,
+    );
+    await refetchEncounter();
+  };
+
   const generateDocument = async () => {
     setActionError('');
     setActionSuccess('');
@@ -997,6 +1256,20 @@ export default function EncounterDetailPage() {
       {mainError && (
         <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
           {mainError instanceof Error ? mainError.message : 'Failed to load main data'}
+        </div>
+      )}
+      {labCatalogError && (
+        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
+          {labCatalogError instanceof Error
+            ? labCatalogError.message
+            : 'Failed to load LAB catalog'}
+        </div>
+      )}
+      {encounterLabTestsError && (
+        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
+          {encounterLabTestsError instanceof Error
+            ? encounterLabTestsError.message
+            : 'Failed to load encounter LAB tests'}
         </div>
       )}
 
@@ -1442,49 +1715,10 @@ export default function EncounterDetailPage() {
         {encounter.status === 'IN_PROGRESS' && (
           <div className="space-y-4">
             {encounter.type === 'LAB' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium">Result Summary</label>
-                  <textarea
-                    value={mainForm.resultSummary}
-                    onChange={(event) =>
-                      setMainForm((previous) => ({
-                        ...previous,
-                        resultSummary: event.target.value,
-                      }))
-                    }
-                    className="mt-1 block w-full rounded border border-gray-300 p-2"
-                    rows={3}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium">Verified By</label>
-                  <input
-                    value={mainForm.verifiedBy}
-                    onChange={(event) =>
-                      setMainForm((previous) => ({
-                        ...previous,
-                        verifiedBy: event.target.value,
-                      }))
-                    }
-                    className="mt-1 block w-full rounded border border-gray-300 p-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium">Verified At</label>
-                  <input
-                    type="datetime-local"
-                    value={mainForm.verifiedAt}
-                    onChange={(event) =>
-                      setMainForm((previous) => ({
-                        ...previous,
-                        verifiedAt: event.target.value,
-                      }))
-                    }
-                    className="mt-1 block w-full rounded border border-gray-300 p-2"
-                  />
-                </div>
-              </div>
+              <p className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                LAB MAIN is managed through structured result entry below (Order
+                Tests, Enter Results, Verify).
+              </p>
             )}
 
             {encounter.type === 'RAD' && (
@@ -1715,30 +1949,225 @@ export default function EncounterDetailPage() {
             )}
 
             <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  void saveMain();
-                }}
-                disabled={isSavingMain}
-                className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60"
-              >
-                {isSavingMain ? 'Saving...' : 'Save Main'}
-              </button>
+              {encounter.type !== 'LAB' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void saveMain();
+                  }}
+                  disabled={isSavingMain}
+                  className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {isSavingMain ? 'Saving...' : 'Save Main'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
                   void finalizeEncounter();
                 }}
-                disabled={isFinalizing}
+                disabled={
+                  isFinalizing ||
+                  (encounter.type === 'LAB' &&
+                    (!hasOrderedLabTests || !allLabTestsVerified))
+                }
                 className="rounded bg-gray-900 px-4 py-2 text-white hover:bg-gray-700 disabled:opacity-60"
               >
                 {isFinalizing ? 'Finalizing...' : 'Finalize Encounter'}
               </button>
             </div>
+            {encounter.type === 'LAB' && (!hasOrderedLabTests || !allLabTestsVerified) && (
+              <p className="text-sm text-amber-700">
+                Finalize is disabled until at least one LAB test is ordered and all
+                ordered tests are verified.
+              </p>
+            )}
           </div>
         )}
       </div>
+
+      {encounter.type === 'LAB' && (
+        <>
+          <div className="rounded border bg-white p-6 shadow mb-6">
+            <h2 className="text-lg font-semibold mb-4">Order Tests</h2>
+            {labCatalogLoading ? (
+              <p className="text-sm text-gray-600">Loading LAB catalog...</p>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="min-w-64">
+                    <label className="block text-sm font-medium">Catalog Test</label>
+                    <select
+                      value={selectedLabTestId}
+                      onChange={(event) => setSelectedLabTestId(event.target.value)}
+                      className="mt-1 block w-full rounded border border-gray-300 p-2"
+                    >
+                      {(labCatalog?.data ?? []).map((test) => (
+                        <option key={test.id} value={test.id}>
+                          {test.department} - {test.name} ({test.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void addLabTestToEncounter();
+                    }}
+                    disabled={
+                      isAddingLabTest ||
+                      !selectedLabTestId ||
+                      (encounter.status !== 'PREP' && encounter.status !== 'IN_PROGRESS')
+                    }
+                    className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60"
+                  >
+                    {isAddingLabTest ? 'Adding...' : 'Add to Encounter'}
+                  </button>
+                </div>
+                {encounter.status !== 'PREP' && encounter.status !== 'IN_PROGRESS' && (
+                  <p className="mt-3 text-sm text-amber-700">
+                    Ordering is allowed only while encounter is PREP or IN_PROGRESS.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="rounded border bg-white p-6 shadow mb-6">
+            <h2 className="text-lg font-semibold mb-4">Enter Results</h2>
+            {encounterLabTestsLoading ? (
+              <p className="text-sm text-gray-600">Loading ordered tests...</p>
+            ) : orderedLabTests.length === 0 ? (
+              <p className="text-sm text-gray-600">
+                No ordered LAB tests yet. Add a test first.
+              </p>
+            ) : (
+              <div className="space-y-5">
+                {orderedLabTests.map((orderedTest) => {
+                  const resultByParameterId = new Map(
+                    orderedTest.results.map((result) => [result.parameterId, result]),
+                  );
+
+                  return (
+                    <div
+                      key={orderedTest.orderItem.id}
+                      className="rounded border border-gray-200 p-4"
+                    >
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-medium">
+                          {orderedTest.test.department} - {orderedTest.test.name} (
+                          {orderedTest.test.code})
+                        </p>
+                        <span className="rounded bg-gray-100 px-2 py-1 text-xs font-medium">
+                          {orderedTest.orderItem.status}
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full border border-gray-200 text-sm">
+                          <thead>
+                            <tr className="bg-gray-50 text-left">
+                              <th className="border border-gray-200 px-2 py-2">Parameter</th>
+                              <th className="border border-gray-200 px-2 py-2">Result</th>
+                              <th className="border border-gray-200 px-2 py-2">Unit</th>
+                              <th className="border border-gray-200 px-2 py-2">Range</th>
+                              <th className="border border-gray-200 px-2 py-2">Flag</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {orderedTest.parameters.map((parameter) => {
+                              const result = resultByParameterId.get(parameter.id);
+                              const reference =
+                                parameter.refText ??
+                                (parameter.refLow !== null && parameter.refHigh !== null
+                                  ? `${parameter.refLow}-${parameter.refHigh}`
+                                  : parameter.refLow !== null
+                                    ? `>= ${parameter.refLow}`
+                                    : parameter.refHigh !== null
+                                      ? `<= ${parameter.refHigh}`
+                                      : '-');
+
+                              return (
+                                <tr key={parameter.id}>
+                                  <td className="border border-gray-200 px-2 py-2">
+                                    {parameter.name}
+                                  </td>
+                                  <td className="border border-gray-200 px-2 py-2">
+                                    {encounter.status === 'IN_PROGRESS' &&
+                                    orderedTest.orderItem.status !== 'VERIFIED' ? (
+                                      <input
+                                        value={
+                                          labResultDrafts[orderedTest.orderItem.id]?.[
+                                            parameter.id
+                                          ] ?? ''
+                                        }
+                                        onChange={(event) =>
+                                          updateLabResultDraft(
+                                            orderedTest.orderItem.id,
+                                            parameter.id,
+                                            event.target.value,
+                                          )
+                                        }
+                                        className="w-full rounded border border-gray-300 p-1"
+                                      />
+                                    ) : (
+                                      <span>{result?.value ?? '-'}</span>
+                                    )}
+                                  </td>
+                                  <td className="border border-gray-200 px-2 py-2">
+                                    {parameter.unit ?? '-'}
+                                  </td>
+                                  <td className="border border-gray-200 px-2 py-2">
+                                    {reference}
+                                  </td>
+                                  <td className="border border-gray-200 px-2 py-2">
+                                    {result?.flag ?? 'UNKNOWN'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      {encounter.status === 'IN_PROGRESS' && (
+                        <div className="mt-3 flex flex-wrap gap-3">
+                          {orderedTest.orderItem.status !== 'VERIFIED' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void submitLabOrderResults(orderedTest);
+                              }}
+                              disabled={savingLabOrderItemId === orderedTest.orderItem.id}
+                              className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60"
+                            >
+                              {savingLabOrderItemId === orderedTest.orderItem.id
+                                ? 'Saving...'
+                                : 'Submit Results'}
+                            </button>
+                          )}
+                          {orderedTest.orderItem.status === 'RESULTS_ENTERED' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void verifyLabOrderResults(orderedTest);
+                              }}
+                              disabled={verifyingLabOrderItemId === orderedTest.orderItem.id}
+                              className="rounded bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-700 disabled:opacity-60"
+                            >
+                              {verifyingLabOrderItemId === orderedTest.orderItem.id
+                                ? 'Verifying...'
+                                : 'Verify'}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {(encounter.status === 'FINALIZED' || encounter.status === 'DOCUMENTED') && (
         <div className="rounded border bg-white p-6 shadow">
@@ -1768,34 +2197,49 @@ export default function EncounterDetailPage() {
             </p>
           )}
 
-          <div className="mb-4 max-w-sm">
-            <label className="block text-sm font-medium">Document Type</label>
-            <select
-              value={selectedDocumentType}
-              onChange={(event) =>
-                setSelectedDocumentType(event.target.value as RequestedDocumentType)
-              }
-              className="mt-1 block w-full rounded border border-gray-300 p-2"
-            >
-              {availableDocumentTypes.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </div>
+          {encounter.type !== 'LAB' && (
+            <div className="mb-4 max-w-sm">
+              <label className="block text-sm font-medium">Document Type</label>
+              <select
+                value={selectedDocumentType}
+                onChange={(event) =>
+                  setSelectedDocumentType(event.target.value as RequestedDocumentType)
+                }
+                className="mt-1 block w-full rounded border border-gray-300 p-2"
+              >
+                {availableDocumentTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                void generateDocument();
-              }}
-              disabled={isGeneratingDocument}
-              className="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 disabled:opacity-60"
-            >
-              {isGeneratingDocument ? 'Generating...' : 'Generate Document'}
-            </button>
+            {encounter.type === 'LAB' ? (
+              <button
+                type="button"
+                onClick={() => {
+                  void publishLabReport();
+                }}
+                disabled={isPublishingLabReport}
+                className="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 disabled:opacity-60"
+              >
+                {isPublishingLabReport ? 'Publishing...' : 'Publish LAB Report'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  void generateDocument();
+                }}
+                disabled={isGeneratingDocument}
+                className="rounded bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700 disabled:opacity-60"
+              >
+                {isGeneratingDocument ? 'Generating...' : 'Generate Document'}
+              </button>
+            )}
             {documentMeta && (
               <button
                 type="button"

@@ -33,6 +33,10 @@ model Tenant {
   auditEvents        AuditEvent[]
   invoices           Invoice[]
   payments           Payment[]
+  labTestDefinitions LabTestDefinition[]
+  labTestParameters  LabTestParameter[]
+  labOrderItems      LabOrderItem[]
+  labResultItems     LabResultItem[]
 }
 
 model TenantDomain {
@@ -168,6 +172,7 @@ model Encounter {
   opdMain   OpdEncounterMain?
   bbMain    BbEncounterMain?
   ipdMain   IpdEncounterMain?
+  labOrderItems LabOrderItem[]
 
   @@unique([tenantId, encounterCode])
   @@index([tenantId, patientId, createdAt])
@@ -349,6 +354,86 @@ model IpdEncounterMain {
   @@unique([tenantId, encounterId])
 }
 
+model LabTestDefinition {
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  code       String
+  name       String
+  department String
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  parameters LabTestParameter[]
+  orderItems LabOrderItem[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, active, name])
+}
+
+model LabTestParameter {
+  id           String            @id @default(uuid())
+  tenantId     String
+  tenant       Tenant            @relation(fields: [tenantId], references: [id])
+  testId       String
+  test         LabTestDefinition @relation(fields: [testId], references: [id])
+  name         String
+  unit         String?
+  refLow       Float?
+  refHigh      Float?
+  refText      String?
+  displayOrder Int               @default(0)
+  active       Boolean           @default(true)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  resultItems LabResultItem[]
+
+  @@index([tenantId, testId, displayOrder])
+  @@unique([tenantId, testId, name])
+}
+
+model LabOrderItem {
+  id          String             @id @default(uuid())
+  tenantId    String
+  tenant      Tenant             @relation(fields: [tenantId], references: [id])
+  encounterId String
+  encounter   Encounter          @relation(fields: [encounterId], references: [id])
+  testId      String
+  test        LabTestDefinition  @relation(fields: [testId], references: [id])
+  status      LabOrderItemStatus @default(ORDERED)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  results LabResultItem[]
+
+  @@unique([tenantId, encounterId, testId])
+  @@index([tenantId, encounterId, status])
+}
+
+model LabResultItem {
+  id          String        @id @default(uuid())
+  tenantId    String
+  tenant      Tenant        @relation(fields: [tenantId], references: [id])
+  orderItemId String
+  orderItem   LabOrderItem  @relation(fields: [orderItemId], references: [id])
+  parameterId String
+  parameter   LabTestParameter @relation(fields: [parameterId], references: [id])
+  value       String
+  valueNumeric Float?
+  flag        LabResultFlag @default(UNKNOWN)
+  enteredBy   String?
+  enteredAt   DateTime?
+  verifiedBy  String?
+  verifiedAt  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([tenantId, orderItemId, parameterId])
+  @@index([tenantId, orderItemId])
+}
+
 model PatientSequence {
   tenantId  String   @id
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
@@ -460,4 +545,18 @@ enum BbUrgency {
 enum BbCrossmatchResult {
   COMPATIBLE
   INCOMPATIBLE
+}
+
+enum LabOrderItemStatus {
+  ORDERED
+  RESULTS_ENTERED
+  VERIFIED
+}
+
+enum LabResultFlag {
+  LOW
+  HIGH
+  NORMAL
+  ABNORMAL
+  UNKNOWN
 }

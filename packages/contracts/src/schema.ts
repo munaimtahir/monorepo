@@ -142,6 +142,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lab/tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List LAB test definitions */
+        get: operations["listLabTests"];
+        put?: never;
+        /** Create LAB test definition */
+        post: operations["createLabTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab/tests/{testId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get LAB test definition by id */
+        get: operations["getLabTestById"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab/tests/{testId}/parameters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List parameters for LAB test definition */
+        get: operations["listLabTestParameters"];
+        put?: never;
+        /** Add parameter to LAB test definition */
+        post: operations["addLabTestParameter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/encounters/{id}/prep": {
         parameters: {
             query?: never;
@@ -278,6 +331,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/encounters/{id}:lab-add-test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a catalog test to LAB encounter */
+        post: operations["addLabTestToEncounter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{id}/lab-tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List ordered LAB tests with parameters and results for encounter */
+        get: operations["listEncounterLabTests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{id}:lab-enter-results": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enter structured results for LAB encounter order item */
+        post: operations["enterEncounterLabResults"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{id}:lab-verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify LAB order item results */
+        post: operations["verifyEncounterLabResults"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/encounters/{id}:lab-publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish LAB report (PDF-only) for finalized LAB encounter */
+        post: operations["publishEncounterLabReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/documents/{documentId}": {
         parameters: {
             query?: never;
@@ -365,6 +503,116 @@ export interface components {
         ListEncountersResponse: {
             data?: components["schemas"]["Encounter"][];
             total?: number;
+        };
+        LabTestDefinition: {
+            /** Format: uuid */
+            id: string;
+            code: string;
+            name: string;
+            department: string;
+            active: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        LabTestParameter: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            testId: string;
+            name: string;
+            unit?: string | null;
+            refLow?: number | null;
+            refHigh?: number | null;
+            refText?: string | null;
+            displayOrder: number;
+            active: boolean;
+        };
+        /** @enum {string} */
+        LabOrderItemStatus: "ORDERED" | "RESULTS_ENTERED" | "VERIFIED";
+        /** @enum {string} */
+        LabResultFlag: "LOW" | "HIGH" | "NORMAL" | "ABNORMAL" | "UNKNOWN";
+        LabOrderItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            encounterId: string;
+            /** Format: uuid */
+            testId: string;
+            status: components["schemas"]["LabOrderItemStatus"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        LabResultItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            orderItemId: string;
+            /** Format: uuid */
+            parameterId: string;
+            value: string;
+            valueNumeric?: number | null;
+            flag: components["schemas"]["LabResultFlag"];
+            enteredBy?: string | null;
+            /** Format: date-time */
+            enteredAt?: string | null;
+            verifiedBy?: string | null;
+            /** Format: date-time */
+            verifiedAt?: string | null;
+        };
+        LabOrderedTest: {
+            orderItem: components["schemas"]["LabOrderItem"];
+            test: components["schemas"]["LabTestDefinition"];
+            parameters: components["schemas"]["LabTestParameter"][];
+            results: components["schemas"]["LabResultItem"][];
+        };
+        ListLabTestsResponse: {
+            data: components["schemas"]["LabTestDefinition"][];
+            total: number;
+        };
+        ListLabTestParametersResponse: {
+            data: components["schemas"]["LabTestParameter"][];
+            total: number;
+        };
+        ListEncounterLabTestsResponse: {
+            data: components["schemas"]["LabOrderedTest"][];
+            total: number;
+        };
+        CreateTestRequest: {
+            code: string;
+            name: string;
+            department: string;
+            active?: boolean;
+        };
+        AddParameterRequest: {
+            name: string;
+            unit?: string;
+            refLow?: number;
+            refHigh?: number;
+            refText?: string;
+            displayOrder?: number;
+            active?: boolean;
+        };
+        AddTestToEncounterRequest: {
+            /** Format: uuid */
+            testId: string;
+        };
+        EnterLabResultValueInput: {
+            /** Format: uuid */
+            parameterId: string;
+            value: string;
+        };
+        EnterLabResultsRequest: {
+            /** Format: uuid */
+            orderItemId: string;
+            results: components["schemas"]["EnterLabResultValueInput"][];
+        };
+        VerifyLabResultsRequest: {
+            /** Format: uuid */
+            orderItemId: string;
         };
         LabPrepSaveRequest: {
             specimenType?: string | null;
@@ -601,6 +849,7 @@ export interface components {
         TenantIdHeader: string;
         IdPathParam: string;
         DocumentIdPathParam: string;
+        LabTestIdPathParam: string;
     };
     requestBodies: never;
     headers: never;
@@ -882,6 +1131,146 @@ export interface operations {
             500: components["responses"]["UnexpectedError"];
         };
     };
+    listLabTests: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description DEV ONLY. Ignored in production. For local testing when hostname is localhost. */
+                "x-tenant-id"?: components["parameters"]["TenantIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description LAB test list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListLabTestsResponse"];
+                };
+            };
+            500: components["responses"]["UnexpectedError"];
+        };
+    };
+    createLabTest: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description DEV ONLY. Ignored in production. For local testing when hostname is localhost. */
+                "x-tenant-id"?: components["parameters"]["TenantIdHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTestRequest"];
+            };
+        };
+        responses: {
+            /** @description LAB test created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabTestDefinition"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            409: components["responses"]["DomainError"];
+            500: components["responses"]["UnexpectedError"];
+        };
+    };
+    getLabTestById: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description DEV ONLY. Ignored in production. For local testing when hostname is localhost. */
+                "x-tenant-id"?: components["parameters"]["TenantIdHeader"];
+            };
+            path: {
+                testId: components["parameters"]["LabTestIdPathParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description LAB test definition */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabTestDefinition"];
+                };
+            };
+            404: components["responses"]["NotFoundError"];
+            500: components["responses"]["UnexpectedError"];
+        };
+    };
+    listLabTestParameters: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description DEV ONLY. Ignored in production. For local testing when hostname is localhost. */
+                "x-tenant-id"?: components["parameters"]["TenantIdHeader"];
+            };
+            path: {
+                testId: components["parameters"]["LabTestIdPathParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description LAB parameters list */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListLabTestParametersResponse"];
+                };
+            };
+            404: components["responses"]["NotFoundError"];
+            500: components["responses"]["UnexpectedError"];
+        };
+    };
+    addLabTestParameter: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description DEV ONLY. Ignored in production. For local testing when hostname is localhost. */
+                "x-tenant-id"?: components["parameters"]["TenantIdHeader"];
+            };
+            path: {
+                testId: components["parameters"]["LabTestIdPathParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddParameterRequest"];
+            };
+        };
+        responses: {
+            /** @description LAB parameter created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabTestParameter"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            404: components["responses"]["NotFoundError"];
+            500: components["responses"]["UnexpectedError"];
+        };
+    };
     getEncounterPrep: {
         parameters: {
             query?: never;
@@ -1114,6 +1503,161 @@ export interface operations {
                 };
             };
             400: components["responses"]["ValidationError"];
+            404: components["responses"]["NotFoundError"];
+            409: components["responses"]["DomainError"];
+            500: components["responses"]["UnexpectedError"];
+        };
+    };
+    addLabTestToEncounter: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description DEV ONLY. Ignored in production. For local testing when hostname is localhost. */
+                "x-tenant-id"?: components["parameters"]["TenantIdHeader"];
+            };
+            path: {
+                id: components["parameters"]["IdPathParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddTestToEncounterRequest"];
+            };
+        };
+        responses: {
+            /** @description LAB order item created */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabOrderedTest"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            404: components["responses"]["NotFoundError"];
+            409: components["responses"]["DomainError"];
+            500: components["responses"]["UnexpectedError"];
+        };
+    };
+    listEncounterLabTests: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description DEV ONLY. Ignored in production. For local testing when hostname is localhost. */
+                "x-tenant-id"?: components["parameters"]["TenantIdHeader"];
+            };
+            path: {
+                id: components["parameters"]["IdPathParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ordered LAB tests */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListEncounterLabTestsResponse"];
+                };
+            };
+            404: components["responses"]["NotFoundError"];
+            409: components["responses"]["DomainError"];
+            500: components["responses"]["UnexpectedError"];
+        };
+    };
+    enterEncounterLabResults: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description DEV ONLY. Ignored in production. For local testing when hostname is localhost. */
+                "x-tenant-id"?: components["parameters"]["TenantIdHeader"];
+            };
+            path: {
+                id: components["parameters"]["IdPathParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnterLabResultsRequest"];
+            };
+        };
+        responses: {
+            /** @description Results entered */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabOrderedTest"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            404: components["responses"]["NotFoundError"];
+            409: components["responses"]["DomainError"];
+            500: components["responses"]["UnexpectedError"];
+        };
+    };
+    verifyEncounterLabResults: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description DEV ONLY. Ignored in production. For local testing when hostname is localhost. */
+                "x-tenant-id"?: components["parameters"]["TenantIdHeader"];
+            };
+            path: {
+                id: components["parameters"]["IdPathParam"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyLabResultsRequest"];
+            };
+        };
+        responses: {
+            /** @description LAB order item verified */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabOrderedTest"];
+                };
+            };
+            400: components["responses"]["ValidationError"];
+            404: components["responses"]["NotFoundError"];
+            409: components["responses"]["DomainError"];
+            500: components["responses"]["UnexpectedError"];
+        };
+    };
+    publishEncounterLabReport: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description DEV ONLY. Ignored in production. For local testing when hostname is localhost. */
+                "x-tenant-id"?: components["parameters"]["TenantIdHeader"];
+            };
+            path: {
+                id: components["parameters"]["IdPathParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description LAB report queued or rendered */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentResponse"];
+                };
+            };
             404: components["responses"]["NotFoundError"];
             409: components["responses"]["DomainError"];
             500: components["responses"]["UnexpectedError"];

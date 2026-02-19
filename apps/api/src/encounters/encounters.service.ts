@@ -1,5 +1,6 @@
 import {
   BbCrossmatchResult,
+  LabOrderItemStatus,
   BbUrgency,
   type BbEncounterMain,
   type BbEncounterPrep,
@@ -22,6 +23,7 @@ import {
 } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { DomainException } from '../common/errors/domain.exception';
+import { traceSpan } from '../common/observability/workflow-trace';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   type BbMainSaveRequest,
@@ -73,59 +75,72 @@ export class EncountersService {
 
   async create(dto: CreateEncounterDto) {
     const tenantId = this.tenantId;
-    const encounterType = dto.type.trim().toUpperCase();
-    const startedAt = dto.startedAt ? new Date(dto.startedAt) : new Date();
-    const year = startedAt.getUTCFullYear();
-
-    return this.prisma.$transaction(async (tx) => {
-      const patient = await tx.patient.findFirst({
-        where: {
-          id: dto.patientId,
-          tenantId,
-        },
-      });
-
-      if (!patient) {
-        throw new DomainException(
-          'PATIENT_NOT_FOUND',
-          'Patient is not available in this tenant',
-        );
-      }
-
-      const sequence = await tx.encounterSequence.upsert({
-        where: {
-          tenantId_type_year: {
-            tenantId,
-            type: encounterType,
-            year,
-          },
-        },
-        create: {
-          tenantId,
-          type: encounterType,
-          year,
-          lastValue: 1,
-        },
-        update: {
-          lastValue: {
-            increment: 1,
-          },
-        },
-      });
-
-      const encounterCode = `${encounterType}-${year}-${String(sequence.lastValue).padStart(6, '0')}`;
-
-      return tx.encounter.create({
-        data: {
-          tenantId,
+    return traceSpan(
+      {
+        span: 'encounter.create',
+        requestId: this.cls.get<string>('REQUEST_ID'),
+        tenantId,
+        metadata: {
           patientId: dto.patientId,
-          type: encounterType,
-          encounterCode,
-          status: encounterStates.CREATED,
-          startedAt,
+          type: dto.type,
         },
-      });
-    });
+      },
+      async () => {
+        const encounterType = dto.type.trim().toUpperCase();
+        const startedAt = dto.startedAt ? new Date(dto.startedAt) : new Date();
+        const year = startedAt.getUTCFullYear();
+
+        return this.prisma.$transaction(async (tx) => {
+          const patient = await tx.patient.findFirst({
+            where: {
+              id: dto.patientId,
+              tenantId,
+            },
+          });
+
+          if (!patient) {
+            throw new DomainException(
+              'PATIENT_NOT_FOUND',
+              'Patient is not available in this tenant',
+            );
+          }
+
+          const sequence = await tx.encounterSequence.upsert({
+            where: {
+              tenantId_type_year: {
+                tenantId,
+                type: encounterType,
+                year,
+              },
+            },
+            create: {
+              tenantId,
+              type: encounterType,
+              year,
+              lastValue: 1,
+            },
+            update: {
+              lastValue: {
+                increment: 1,
+              },
+            },
+          });
+
+          const encounterCode = `${encounterType}-${year}-${String(sequence.lastValue).padStart(6, '0')}`;
+
+          return tx.encounter.create({
+            data: {
+              tenantId,
+              patientId: dto.patientId,
+              type: encounterType,
+              encounterCode,
+              status: encounterStates.CREATED,
+              startedAt,
+            },
+          });
+        });
+      },
+    );
   }
 
   async findAll(
@@ -184,111 +199,121 @@ export class EncountersService {
     payload: EncounterPrepSaveRequest,
   ): Promise<EncounterPrepResponse> {
     const tenantId = this.tenantId;
-    const encounter = await this.findEncounterById(id);
-    const prepPayload = this.ensureObjectPayload(payload);
-
-    if (encounter.type === 'LAB') {
-      const input = this.toLabPrepInput(prepPayload);
-      const prep = await this.prisma.labEncounterPrep.upsert({
-        where: {
-          tenantId_encounterId: {
-            tenantId,
-            encounterId: encounter.id,
-          },
-        },
-        create: {
-          tenantId,
-          encounterId: encounter.id,
-          ...input,
-        },
-        update: {
-          ...input,
-        },
-      });
-      return this.toPrepResponse(encounter, prep);
-    }
-
-    if (encounter.type === 'RAD') {
-      const input = this.toRadPrepInput(prepPayload);
-      const prep = await this.prisma.radEncounterPrep.upsert({
-        where: {
-          tenantId_encounterId: {
-            tenantId,
-            encounterId: encounter.id,
-          },
-        },
-        create: {
-          tenantId,
-          encounterId: encounter.id,
-          ...input,
-        },
-        update: {
-          ...input,
-        },
-      });
-      return this.toPrepResponse(encounter, prep);
-    }
-
-    if (encounter.type === 'OPD') {
-      const input = this.toOpdPrepInput(prepPayload);
-      const prep = await this.prisma.opdEncounterPrep.upsert({
-        where: {
-          tenantId_encounterId: {
-            tenantId,
-            encounterId: encounter.id,
-          },
-        },
-        create: {
-          tenantId,
-          encounterId: encounter.id,
-          ...input,
-        },
-        update: {
-          ...input,
-        },
-      });
-      return this.toPrepResponse(encounter, prep);
-    }
-
-    if (encounter.type === 'BB') {
-      const input = this.toBbPrepInput(prepPayload);
-      const prep = await this.prisma.bbEncounterPrep.upsert({
-        where: {
-          tenantId_encounterId: {
-            tenantId,
-            encounterId: encounter.id,
-          },
-        },
-        create: {
-          tenantId,
-          encounterId: encounter.id,
-          ...input,
-        },
-        update: {
-          ...input,
-        },
-      });
-      return this.toPrepResponse(encounter, prep);
-    }
-
-    const input = this.toIpdPrepInput(prepPayload);
-    const prep = await this.prisma.ipdEncounterPrep.upsert({
-      where: {
-        tenantId_encounterId: {
-          tenantId,
-          encounterId: encounter.id,
-        },
-      },
-      create: {
+    return traceSpan(
+      {
+        span: 'encounter.sample_update',
+        requestId: this.cls.get<string>('REQUEST_ID'),
         tenantId,
-        encounterId: encounter.id,
-        ...input,
+        metadata: { encounterId: id },
       },
-      update: {
-        ...input,
+      async () => {
+        const encounter = await this.findEncounterById(id);
+        const prepPayload = this.ensureObjectPayload(payload);
+
+        if (encounter.type === 'LAB') {
+          const input = this.toLabPrepInput(prepPayload);
+          const prep = await this.prisma.labEncounterPrep.upsert({
+            where: {
+              tenantId_encounterId: {
+                tenantId,
+                encounterId: encounter.id,
+              },
+            },
+            create: {
+              tenantId,
+              encounterId: encounter.id,
+              ...input,
+            },
+            update: {
+              ...input,
+            },
+          });
+          return this.toPrepResponse(encounter, prep);
+        }
+
+        if (encounter.type === 'RAD') {
+          const input = this.toRadPrepInput(prepPayload);
+          const prep = await this.prisma.radEncounterPrep.upsert({
+            where: {
+              tenantId_encounterId: {
+                tenantId,
+                encounterId: encounter.id,
+              },
+            },
+            create: {
+              tenantId,
+              encounterId: encounter.id,
+              ...input,
+            },
+            update: {
+              ...input,
+            },
+          });
+          return this.toPrepResponse(encounter, prep);
+        }
+
+        if (encounter.type === 'OPD') {
+          const input = this.toOpdPrepInput(prepPayload);
+          const prep = await this.prisma.opdEncounterPrep.upsert({
+            where: {
+              tenantId_encounterId: {
+                tenantId,
+                encounterId: encounter.id,
+              },
+            },
+            create: {
+              tenantId,
+              encounterId: encounter.id,
+              ...input,
+            },
+            update: {
+              ...input,
+            },
+          });
+          return this.toPrepResponse(encounter, prep);
+        }
+
+        if (encounter.type === 'BB') {
+          const input = this.toBbPrepInput(prepPayload);
+          const prep = await this.prisma.bbEncounterPrep.upsert({
+            where: {
+              tenantId_encounterId: {
+                tenantId,
+                encounterId: encounter.id,
+              },
+            },
+            create: {
+              tenantId,
+              encounterId: encounter.id,
+              ...input,
+            },
+            update: {
+              ...input,
+            },
+          });
+          return this.toPrepResponse(encounter, prep);
+        }
+
+        const input = this.toIpdPrepInput(prepPayload);
+        const prep = await this.prisma.ipdEncounterPrep.upsert({
+          where: {
+            tenantId_encounterId: {
+              tenantId,
+              encounterId: encounter.id,
+            },
+          },
+          create: {
+            tenantId,
+            encounterId: encounter.id,
+            ...input,
+          },
+          update: {
+            ...input,
+          },
+        });
+        return this.toPrepResponse(encounter, prep);
       },
-    });
-    return this.toPrepResponse(encounter, prep);
+    );
   }
 
   async getPrep(id: string): Promise<EncounterPrepResponse> {
@@ -345,51 +370,64 @@ export class EncountersService {
 
   async startMain(id: string) {
     const tenantId = this.tenantId;
-
-    return this.prisma.$transaction(async (tx) => {
-      const encounter = await tx.encounter.findFirst({
-        where: {
-          id,
-          tenantId,
+    return traceSpan(
+      {
+        span: 'encounter.recalculate',
+        requestId: this.cls.get<string>('REQUEST_ID'),
+        tenantId,
+        metadata: {
+          encounterId: id,
+          fromStatus: encounterStates.PREP,
+          toStatus: encounterStates.IN_PROGRESS,
         },
-      });
+      },
+      async () => {
+        return this.prisma.$transaction(async (tx) => {
+          const encounter = await tx.encounter.findFirst({
+            where: {
+              id,
+              tenantId,
+            },
+          });
 
-      if (!encounter) {
-        throw new NotFoundException('Encounter not found');
-      }
+          if (!encounter) {
+            throw new NotFoundException('Encounter not found');
+          }
 
-      if (encounter.status !== encounterStates.PREP) {
-        throw new DomainException(
-          'ENCOUNTER_STATE_INVALID',
-          'Cannot start main phase before preparation',
-        );
-      }
+          if (encounter.status !== encounterStates.PREP) {
+            throw new DomainException(
+              'ENCOUNTER_STATE_INVALID',
+              'Cannot start main phase before preparation',
+            );
+          }
 
-      if (encounter.type === 'LAB') {
-        const prep = await tx.labEncounterPrep.findFirst({
-          where: {
-            tenantId,
-            encounterId: encounter.id,
-          },
+          if (encounter.type === 'LAB') {
+            const prep = await tx.labEncounterPrep.findFirst({
+              where: {
+                tenantId,
+                encounterId: encounter.id,
+              },
+            });
+
+            if (!prep?.specimenType || prep.specimenType.trim().length === 0) {
+              throw new DomainException(
+                'PREP_INCOMPLETE',
+                'LAB prep requires specimenType before starting main',
+              );
+            }
+          }
+
+          return tx.encounter.update({
+            where: {
+              id: encounter.id,
+            },
+            data: {
+              status: encounterStates.IN_PROGRESS,
+            },
+          });
         });
-
-        if (!prep?.specimenType || prep.specimenType.trim().length === 0) {
-          throw new DomainException(
-            'PREP_INCOMPLETE',
-            'LAB prep requires specimenType before starting main',
-          );
-        }
-      }
-
-      return tx.encounter.update({
-        where: {
-          id: encounter.id,
-        },
-        data: {
-          status: encounterStates.IN_PROGRESS,
-        },
-      });
-    });
+      },
+    );
   }
 
   async saveMain(
@@ -397,119 +435,129 @@ export class EncountersService {
     payload: EncounterMainSaveRequest,
   ): Promise<EncounterMainResponse> {
     const tenantId = this.tenantId;
-    const encounter = await this.findEncounterById(id);
-
-    if (encounter.status !== encounterStates.IN_PROGRESS) {
-      throw new DomainException(
-        'INVALID_STATE',
-        'MAIN data can only be saved while encounter is IN_PROGRESS',
-      );
-    }
-
-    const mainPayload = this.ensureObjectPayload(payload);
-
-    if (encounter.type === 'LAB') {
-      const input = this.toLabMainInput(mainPayload);
-      const main = await this.prisma.labEncounterMain.upsert({
-        where: {
-          tenantId_encounterId: {
-            tenantId,
-            encounterId: encounter.id,
-          },
-        },
-        create: {
-          tenantId,
-          encounterId: encounter.id,
-          ...input,
-        },
-        update: {
-          ...input,
-        },
-      });
-      return this.toMainResponse(encounter, main);
-    }
-
-    if (encounter.type === 'RAD') {
-      const input = this.toRadMainInput(mainPayload);
-      const main = await this.prisma.radEncounterMain.upsert({
-        where: {
-          tenantId_encounterId: {
-            tenantId,
-            encounterId: encounter.id,
-          },
-        },
-        create: {
-          tenantId,
-          encounterId: encounter.id,
-          ...input,
-        },
-        update: {
-          ...input,
-        },
-      });
-      return this.toMainResponse(encounter, main);
-    }
-
-    if (encounter.type === 'OPD') {
-      const input = this.toOpdMainInput(mainPayload);
-      const main = await this.prisma.opdEncounterMain.upsert({
-        where: {
-          tenantId_encounterId: {
-            tenantId,
-            encounterId: encounter.id,
-          },
-        },
-        create: {
-          tenantId,
-          encounterId: encounter.id,
-          ...input,
-        },
-        update: {
-          ...input,
-        },
-      });
-      return this.toMainResponse(encounter, main);
-    }
-
-    if (encounter.type === 'BB') {
-      const input = this.toBbMainInput(mainPayload);
-      const main = await this.prisma.bbEncounterMain.upsert({
-        where: {
-          tenantId_encounterId: {
-            tenantId,
-            encounterId: encounter.id,
-          },
-        },
-        create: {
-          tenantId,
-          encounterId: encounter.id,
-          ...input,
-        },
-        update: {
-          ...input,
-        },
-      });
-      return this.toMainResponse(encounter, main);
-    }
-
-    const input = this.toIpdMainInput(mainPayload);
-    const main = await this.prisma.ipdEncounterMain.upsert({
-      where: {
-        tenantId_encounterId: {
-          tenantId,
-          encounterId: encounter.id,
-        },
-      },
-      create: {
+    return traceSpan(
+      {
+        span: 'encounter.main_update',
+        requestId: this.cls.get<string>('REQUEST_ID'),
         tenantId,
-        encounterId: encounter.id,
-        ...input,
+        metadata: { encounterId: id },
       },
-      update: {
-        ...input,
+      async () => {
+        const encounter = await this.findEncounterById(id);
+
+        if (encounter.status !== encounterStates.IN_PROGRESS) {
+          throw new DomainException(
+            'INVALID_STATE',
+            'MAIN data can only be saved while encounter is IN_PROGRESS',
+          );
+        }
+
+        const mainPayload = this.ensureObjectPayload(payload);
+
+        if (encounter.type === 'LAB') {
+          const input = this.toLabMainInput(mainPayload);
+          const main = await this.prisma.labEncounterMain.upsert({
+            where: {
+              tenantId_encounterId: {
+                tenantId,
+                encounterId: encounter.id,
+              },
+            },
+            create: {
+              tenantId,
+              encounterId: encounter.id,
+              ...input,
+            },
+            update: {
+              ...input,
+            },
+          });
+          return this.toMainResponse(encounter, main);
+        }
+
+        if (encounter.type === 'RAD') {
+          const input = this.toRadMainInput(mainPayload);
+          const main = await this.prisma.radEncounterMain.upsert({
+            where: {
+              tenantId_encounterId: {
+                tenantId,
+                encounterId: encounter.id,
+              },
+            },
+            create: {
+              tenantId,
+              encounterId: encounter.id,
+              ...input,
+            },
+            update: {
+              ...input,
+            },
+          });
+          return this.toMainResponse(encounter, main);
+        }
+
+        if (encounter.type === 'OPD') {
+          const input = this.toOpdMainInput(mainPayload);
+          const main = await this.prisma.opdEncounterMain.upsert({
+            where: {
+              tenantId_encounterId: {
+                tenantId,
+                encounterId: encounter.id,
+              },
+            },
+            create: {
+              tenantId,
+              encounterId: encounter.id,
+              ...input,
+            },
+            update: {
+              ...input,
+            },
+          });
+          return this.toMainResponse(encounter, main);
+        }
+
+        if (encounter.type === 'BB') {
+          const input = this.toBbMainInput(mainPayload);
+          const main = await this.prisma.bbEncounterMain.upsert({
+            where: {
+              tenantId_encounterId: {
+                tenantId,
+                encounterId: encounter.id,
+              },
+            },
+            create: {
+              tenantId,
+              encounterId: encounter.id,
+              ...input,
+            },
+            update: {
+              ...input,
+            },
+          });
+          return this.toMainResponse(encounter, main);
+        }
+
+        const input = this.toIpdMainInput(mainPayload);
+        const main = await this.prisma.ipdEncounterMain.upsert({
+          where: {
+            tenantId_encounterId: {
+              tenantId,
+              encounterId: encounter.id,
+            },
+          },
+          create: {
+            tenantId,
+            encounterId: encounter.id,
+            ...input,
+          },
+          update: {
+            ...input,
+          },
+        });
+        return this.toMainResponse(encounter, main);
       },
-    });
-    return this.toMainResponse(encounter, main);
+    );
   }
 
   async getMain(id: string): Promise<EncounterMainResponse> {
@@ -566,81 +614,130 @@ export class EncountersService {
 
   async finalize(id: string) {
     const tenantId = this.tenantId;
-
-    return this.prisma.$transaction(async (tx) => {
-      const encounter = await tx.encounter.findFirst({
-        where: {
-          id,
-          tenantId,
+    return traceSpan(
+      {
+        span: 'encounter.recalculate',
+        requestId: this.cls.get<string>('REQUEST_ID'),
+        tenantId,
+        metadata: {
+          encounterId: id,
+          fromStatus: encounterStates.IN_PROGRESS,
+          toStatus: encounterStates.FINALIZED,
         },
-      });
+      },
+      async () => {
+        return this.prisma.$transaction(async (tx) => {
+          const encounter = await tx.encounter.findFirst({
+            where: {
+              id,
+              tenantId,
+            },
+          });
 
-      if (!encounter) {
-        throw new NotFoundException('Encounter not found');
-      }
+          if (!encounter) {
+            throw new NotFoundException('Encounter not found');
+          }
 
-      if (encounter.status !== encounterStates.IN_PROGRESS) {
-        throw new DomainException(
-          'ENCOUNTER_STATE_INVALID',
-          'Cannot finalize before main phase starts',
-        );
-      }
-
-      if (encounter.type === 'RAD') {
-        const main = await tx.radEncounterMain.findFirst({
-          where: {
-            tenantId,
-            encounterId: encounter.id,
-          },
-        });
-
-        if (!main?.reportText || main.reportText.trim().length === 0) {
-          throw new DomainException(
-            'MAIN_INCOMPLETE',
-            'RAD main requires reportText before finalize',
-          );
-        }
-      }
-
-      if (encounter.type === 'BB') {
-        const main = await tx.bbEncounterMain.findFirst({
-          where: {
-            tenantId,
-            encounterId: encounter.id,
-          },
-        });
-
-        if (main?.crossmatchResult === BbCrossmatchResult.COMPATIBLE) {
-          const hasIssueSignal =
-            Boolean(main.componentIssued) ||
-            main.unitsIssued !== null ||
-            main.issuedAt !== null;
-
-          if (
-            hasIssueSignal &&
-            (!main.componentIssued ||
-              main.componentIssued.trim().length === 0 ||
-              !main.unitsIssued ||
-              main.unitsIssued <= 0)
-          ) {
+          if (encounter.status !== encounterStates.IN_PROGRESS) {
             throw new DomainException(
-              'MAIN_INCOMPLETE',
-              'BB main requires componentIssued and unitsIssued when issuing compatible blood',
+              'ENCOUNTER_STATE_INVALID',
+              'Cannot finalize before main phase starts',
             );
           }
-        }
-      }
 
-      return tx.encounter.update({
-        where: {
-          id: encounter.id,
-        },
-        data: {
-          status: encounterStates.FINALIZED,
-          endedAt: new Date(),
-        },
-      });
-    });
+          if (encounter.type === 'LAB') {
+            const totalLabOrderItems = await tx.labOrderItem.count({
+              where: {
+                tenantId,
+                encounterId: encounter.id,
+              },
+            });
+
+            if (totalLabOrderItems === 0) {
+              throw new DomainException(
+                'LAB_NOT_VERIFIED',
+                'At least one LAB test must be ordered and verified before finalize',
+              );
+            }
+
+            const pendingVerification = await tx.labOrderItem.findFirst({
+              where: {
+                tenantId,
+                encounterId: encounter.id,
+                status: {
+                  not: LabOrderItemStatus.VERIFIED,
+                },
+              },
+              select: {
+                id: true,
+              },
+            });
+
+            if (pendingVerification) {
+              throw new DomainException(
+                'LAB_NOT_VERIFIED',
+                'All ordered LAB tests must be verified before finalize',
+              );
+            }
+          }
+
+          if (encounter.type === 'RAD') {
+            const main = await tx.radEncounterMain.findFirst({
+              where: {
+                tenantId,
+                encounterId: encounter.id,
+              },
+            });
+
+            if (!main?.reportText || main.reportText.trim().length === 0) {
+              throw new DomainException(
+                'MAIN_INCOMPLETE',
+                'RAD main requires reportText before finalize',
+              );
+            }
+          }
+
+          if (encounter.type === 'BB') {
+            const main = await tx.bbEncounterMain.findFirst({
+              where: {
+                tenantId,
+                encounterId: encounter.id,
+              },
+            });
+
+            if (main?.crossmatchResult === BbCrossmatchResult.COMPATIBLE) {
+              const hasIssueSignal =
+                Boolean(main.componentIssued) ||
+                main.unitsIssued !== null ||
+                main.issuedAt !== null;
+
+              if (
+                hasIssueSignal &&
+                (!main.componentIssued ||
+                  main.componentIssued.trim().length === 0 ||
+                  !main.unitsIssued ||
+                  main.unitsIssued <= 0)
+              ) {
+                throw new DomainException(
+                  'MAIN_INCOMPLETE',
+                  'BB main requires componentIssued and unitsIssued when issuing compatible blood',
+                );
+              }
+            }
+          }
+
+          return tx.encounter.update({
+            where: {
+              id: encounter.id,
+            },
+            data: {
+              status: encounterStates.FINALIZED,
+              endedAt: new Date(),
+            },
+          });
+        });
+      },
+    );
   }
 
   private async findEncounterById(id: string): Promise<Encounter> {
@@ -666,30 +763,44 @@ export class EncountersService {
     markEndedAt = false,
   ) {
     const tenantId = this.tenantId;
-    return this.prisma.$transaction(async (tx) => {
-      const encounter = await tx.encounter.findFirst({
-        where: {
-          id: encounterId,
-          tenantId,
+    return traceSpan(
+      {
+        span: 'encounter.recalculate',
+        requestId: this.cls.get<string>('REQUEST_ID'),
+        tenantId,
+        metadata: {
+          encounterId,
+          fromStatus: expectedCurrentState,
+          toStatus: nextState,
         },
-      });
+      },
+      async () => {
+        return this.prisma.$transaction(async (tx) => {
+          const encounter = await tx.encounter.findFirst({
+            where: {
+              id: encounterId,
+              tenantId,
+            },
+          });
 
-      if (!encounter) {
-        throw new NotFoundException('Encounter not found');
-      }
+          if (!encounter) {
+            throw new NotFoundException('Encounter not found');
+          }
 
-      if (encounter.status !== expectedCurrentState) {
-        throw new DomainException('ENCOUNTER_STATE_INVALID', errorMessage);
-      }
+          if (encounter.status !== expectedCurrentState) {
+            throw new DomainException('ENCOUNTER_STATE_INVALID', errorMessage);
+          }
 
-      return tx.encounter.update({
-        where: { id: encounter.id },
-        data: {
-          status: nextState,
-          endedAt: markEndedAt ? new Date() : undefined,
-        },
-      });
-    });
+          return tx.encounter.update({
+            where: { id: encounter.id },
+            data: {
+              status: nextState,
+              endedAt: markEndedAt ? new Date() : undefined,
+            },
+          });
+        });
+      },
+    );
   }
 
   private ensureObjectPayload(payload: unknown): Record<string, unknown> {

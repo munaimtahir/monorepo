@@ -90,6 +90,37 @@ type EncounterWithRelations = {
     dailyNote: string | null;
     orders: string | null;
   } | null;
+  labOrderItems?: Array<{
+    id: string;
+    status: string;
+    createdAt: Date;
+    test: {
+      code: string;
+      name: string;
+      department: string;
+      parameters: Array<{
+        id: string;
+        name: string;
+        unit: string | null;
+        refLow: number | null;
+        refHigh: number | null;
+        refText: string | null;
+        displayOrder: number;
+        active: boolean;
+      }>;
+    };
+    results: Array<{
+      id: string;
+      parameterId: string;
+      value: string;
+      valueNumeric: number | null;
+      flag: string;
+      enteredBy: string | null;
+      enteredAt: Date | null;
+      verifiedBy: string | null;
+      verifiedAt: Date | null;
+    }>;
+  }>;
 };
 
 export type BuiltDocumentPayload = {
@@ -269,6 +300,112 @@ function buildMainPayload(encounter: EncounterWithRelations): JsonRecord {
   };
 }
 
+function buildReferenceText(parameter: {
+  refLow: number | null;
+  refHigh: number | null;
+  refText: string | null;
+}): string {
+  if (parameter.refText && parameter.refText.trim().length > 0) {
+    return parameter.refText.trim();
+  }
+
+  if (parameter.refLow !== null && parameter.refHigh !== null) {
+    return `${parameter.refLow}-${parameter.refHigh}`;
+  }
+
+  if (parameter.refLow !== null) {
+    return `>= ${parameter.refLow}`;
+  }
+
+  if (parameter.refHigh !== null) {
+    return `<= ${parameter.refHigh}`;
+  }
+
+  return '-';
+}
+
+function buildLabStructuredPayload(encounter: EncounterWithRelations): JsonRecord {
+  const sortedOrderItems = [...(encounter.labOrderItems ?? [])].sort(
+    (left, right) => {
+      const departmentOrder = left.test.department.localeCompare(
+        right.test.department,
+      );
+    if (departmentOrder !== 0) {
+      return departmentOrder;
+    }
+
+    const nameOrder = left.test.name.localeCompare(right.test.name);
+    if (nameOrder !== 0) {
+      return nameOrder;
+    }
+
+    const codeOrder = left.test.code.localeCompare(right.test.code);
+    if (codeOrder !== 0) {
+      return codeOrder;
+    }
+
+      return left.id.localeCompare(right.id);
+    },
+  );
+
+  const tests = sortedOrderItems.map((orderItem) => {
+    const orderedParameters = [...orderItem.test.parameters]
+      .filter((parameter) => parameter.active)
+      .sort((left, right) => {
+        if (left.displayOrder !== right.displayOrder) {
+          return left.displayOrder - right.displayOrder;
+        }
+        return left.name.localeCompare(right.name);
+      });
+
+    const resultByParameterId = new Map(
+      orderItem.results.map((result) => [result.parameterId, result]),
+    );
+
+    const parameters = orderedParameters.map((parameter) => {
+      const result = resultByParameterId.get(parameter.id);
+      return {
+        name: parameter.name,
+        value: result?.value ?? '',
+        unit: parameter.unit,
+        flag: result?.flag ?? 'UNKNOWN',
+        reference: buildReferenceText(parameter),
+      };
+    });
+
+    return {
+      testCode: orderItem.test.code,
+      testName: orderItem.test.name,
+      department: orderItem.test.department,
+      parameters,
+    };
+  });
+
+  const verifiedRows = sortedOrderItems
+    .flatMap((orderItem) => orderItem.results)
+    .filter((result) => result.verifiedAt !== null)
+    .sort((left, right) => {
+      const leftTime = left.verifiedAt?.getTime() ?? 0;
+      const rightTime = right.verifiedAt?.getTime() ?? 0;
+      if (leftTime !== rightTime) {
+        return rightTime - leftTime;
+      }
+      return (left.verifiedBy ?? '').localeCompare(right.verifiedBy ?? '');
+    });
+
+  const latestVerified = verifiedRows[0];
+
+  return {
+    tests,
+    verifiedSummary: latestVerified
+      ? {
+          verifiedBy: latestVerified.verifiedBy,
+          verifiedAt: iso(latestVerified.verifiedAt),
+        }
+      : null,
+  };
+}
+
 function pickModulePrep(
   documentType: RequestedDocumentType,
   prep: JsonRecord,
@@ -341,6 +478,10 @@ export function buildPayloadForDocumentType(input: {
         ? mainPayload
         : pickModuleMain(documentType, mainPayload),
   };
+
+  if (documentType === 'LAB_REPORT_V1') {
+    payload.lab = buildLabStructuredPayload(encounter);
+  }
 
   return {
     documentType,

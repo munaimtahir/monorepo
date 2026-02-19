@@ -48,31 +48,57 @@ curl -sS -X POST "http://127.0.0.1:3000/encounters/<LAB_ENCOUNTER_ID>:save-prep"
   -H 'Content-Type: application/json' \
   -d '{"specimenType":"Blood"}'
 curl -sS -X POST "http://127.0.0.1:3000/encounters/<LAB_ENCOUNTER_ID>:start-main" -H 'Host: tenant-a.test'
-curl -sS -X POST "http://127.0.0.1:3000/encounters/<LAB_ENCOUNTER_ID>:finalize" -H 'Host: tenant-a.test'
+
+curl -sS -X POST "http://127.0.0.1:3000/lab/tests" \
+  -H 'Host: tenant-a.test' \
+  -H 'Content-Type: application/json' \
+  -d '{"code":"ALB","name":"Serum Albumin","department":"Biochemistry"}'
+
+curl -sS -X POST "http://127.0.0.1:3000/lab/tests/<TEST_ID>/parameters" \
+  -H 'Host: tenant-a.test' \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Albumin","unit":"g/dL","refLow":3.5,"refHigh":5.0,"displayOrder":1}'
+
+curl -sS -X POST "http://127.0.0.1:3000/encounters/<LAB_ENCOUNTER_ID>:lab-add-test" \
+  -H 'Host: tenant-a.test' \
+  -H 'Content-Type: application/json' \
+  -d '{"testId":"<TEST_ID>"}'
+
+curl -sS -X POST "http://127.0.0.1:3000/encounters/<LAB_ENCOUNTER_ID>:lab-enter-results" \
+  -H 'Host: tenant-a.test' \
+  -H 'Authorization: Bearer mock.<TENANT_ID>.<USER_ID>' \
+  -H 'Content-Type: application/json' \
+  -d '{"orderItemId":"<ORDER_ITEM_ID>","results":[{"parameterId":"<PARAMETER_ID>","value":"4.5"}]}'
+
+curl -sS -X POST "http://127.0.0.1:3000/encounters/<LAB_ENCOUNTER_ID>:lab-verify" \
+  -H 'Host: tenant-a.test' \
+  -H 'Authorization: Bearer mock.<TENANT_ID>.<USER_ID>' \
+  -H 'Content-Type: application/json' \
+  -d '{"orderItemId":"<ORDER_ITEM_ID>"}'
+
+curl -sS -X POST "http://127.0.0.1:3000/encounters/<LAB_ENCOUNTER_ID>:finalize" \
+  -H 'Host: tenant-a.test'
 ```
 Observed:
 - `regNo=REG-00000001`
 - `encounterCode=LAB-2026-000001`
-- `PREP -> IN_PROGRESS -> FINALIZED`
+- `PREP -> IN_PROGRESS -> FINALIZED` after verification
+- `Albumin=4.5` computes flag `NORMAL`
 
-Generate module document:
+Publish LAB report (PDF-only):
 ```bash
-curl -sS -X POST "http://127.0.0.1:3000/encounters/<LAB_ENCOUNTER_ID>:document" \
-  -H 'Host: tenant-a.test' \
-  -H 'Content-Type: application/json' \
-  -d '{"documentType":"LAB_REPORT_V1"}'
+curl -sS -X POST "http://127.0.0.1:3000/encounters/<LAB_ENCOUNTER_ID>:lab-publish" \
+  -H 'Host: tenant-a.test'
 ```
 Observed:
 - Returns `DocumentResponse` with `type=LAB_REPORT_V1`
-- Includes `templateKey=LAB_REPORT_V1`
 - Returns `status=QUEUED|RENDERED`
+- Download endpoint `/documents/<DOCUMENT_ID>/file` returns `Content-Type: application/pdf`
 
 Idempotency check:
 ```bash
-curl -sS -X POST "http://127.0.0.1:3000/encounters/<LAB_ENCOUNTER_ID>:document" \
-  -H 'Host: tenant-a.test' \
-  -H 'Content-Type: application/json' \
-  -d '{"documentType":"LAB_REPORT_V1"}'
+curl -sS -X POST "http://127.0.0.1:3000/encounters/<LAB_ENCOUNTER_ID>:lab-publish" \
+  -H 'Host: tenant-a.test'
 ```
 Observed:
 - Same `documentId`, `payloadHash`, and `pdfHash`.

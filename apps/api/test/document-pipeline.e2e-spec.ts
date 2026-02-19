@@ -452,6 +452,22 @@ function createPrismaMock(state: MemoryState) {
         },
       ),
     },
+    labOrderItem: {
+      count: jest.fn(
+        async ({
+          where,
+        }: {
+          where: { tenantId: string; encounterId: string };
+        }) => {
+          const encounter = state.encounters.find(
+            (item) =>
+              item.tenantId === where.tenantId && item.id === where.encounterId,
+          );
+          return encounter?.type === 'LAB' ? 1 : 0;
+        },
+      ),
+      findFirst: jest.fn(async () => null),
+    },
     document: {
       findFirst: jest.fn(
         async ({
