@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import './globals.css';
 import { Providers } from '@/components/providers';
+import { ConditionalAuth } from '@/components/auth/ConditionalAuth';
 
 export const metadata: Metadata = {
     title: 'Vexel Health',
@@ -27,7 +28,9 @@ export default function RootLayout({
                         Admin
                     </Link>
                 </nav>
-                <Providers>{children}</Providers>
+                <Providers>
+                    <ConditionalAuth>{children}</ConditionalAuth>
+                </Providers>
             </body>
         </html>
     );

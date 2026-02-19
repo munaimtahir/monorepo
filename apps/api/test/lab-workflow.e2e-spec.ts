@@ -1027,6 +1027,9 @@ describe('LAB workflow (e2e)', () => {
     'mock.tenant-a.user-a.LAB_CATALOG_WRITE,LAB_ORDER_WRITE,LAB_RESULTS_WRITE,LAB_RESULTS_VERIFY,LAB_REPORT_PUBLISH';
   const tenantAWriteWithoutPublishToken =
     'mock.tenant-a.user-b.LAB_CATALOG_WRITE,LAB_ORDER_WRITE,LAB_RESULTS_WRITE,LAB_RESULTS_VERIFY';
+  const tenantAUserToken = 'mock.tenant-a.user-role-basic.';
+  const tenantAManagerToken = 'mock.tenant-a.manager-role.';
+  const tenantAAdminToken = 'mock.tenant-a.admin-role.';
   const tenantBPublishToken = 'mock.tenant-b.user-c.LAB_REPORT_PUBLISH';
 
   const prismaMock = createPrismaMock(state);
@@ -1219,6 +1222,48 @@ describe('LAB workflow (e2e)', () => {
           'sample_collected_at',
         ]);
       });
+  });
+
+  it('allows prep command access for user, manager, and admin roles', async () => {
+    const patientResponse = await request(app.getHttpServer())
+      .post('/patients')
+      .set('Host', 'tenant-a.test')
+      .send({
+        name: 'Role Access Prep Patient',
+      })
+      .expect(201);
+
+    const encounterResponse = await request(app.getHttpServer())
+      .post('/encounters')
+      .set('Host', 'tenant-a.test')
+      .send({
+        patientId: patientResponse.body.id,
+        type: 'LAB',
+      })
+      .expect(201);
+
+    const encounterId = encounterResponse.body.id as string;
+    const roleTokens = [tenantAUserToken, tenantAManagerToken, tenantAAdminToken];
+
+    for (const [index, token] of roleTokens.entries()) {
+      await request(app.getHttpServer())
+        .post('/lims/commands/updateEncounterPrep')
+        .set('Host', 'tenant-a.test')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          encounter_id: encounterId,
+          prep: {
+            sample_collected_at: new Date(Date.now() + index * 1000).toISOString(),
+            notes: `updated-by-role-${index + 1}`,
+          },
+        })
+        .expect(200)
+        .expect((response) => {
+          expect(response.body.id).toBe(encounterId);
+          expect(response.body.prep_complete).toBe(true);
+          expect(response.body.status).toBe('IN_PROGRESS');
+        });
+    }
   });
 
   it('runs LAB catalog -> order -> results -> verify -> finalize -> publish with tenant isolation', async () => {

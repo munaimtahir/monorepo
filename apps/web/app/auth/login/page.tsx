@@ -1,7 +1,7 @@
 'use client';
 
 import { useForm } from 'react-hook-form';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { client } from '@/lib/api';
 import { useState, useEffect } from 'react';
 import { parseApiError, type FieldErrors } from '@/lib/api-errors';
@@ -15,6 +15,8 @@ type FormData = {
 export default function LoginPage() {
     const { register, handleSubmit, formState: { errors } } = useForm<FormData>();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const returnUrl = searchParams.get('returnUrl') ?? '/patients';
     const [error, setError] = useState('');
     const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
     const [showDevTenant, setShowDevTenant] = useState(false);
@@ -53,8 +55,8 @@ export default function LoginPage() {
 
         if (resData && resData.accessToken) {
             localStorage.setItem('vexel_token', resData.accessToken);
-            // Optional: User fetching logic could go here
-            router.push('/patients');
+            const target = returnUrl.startsWith('/') && !returnUrl.startsWith('//') ? returnUrl : '/patients';
+            router.push(target);
         } else {
             // Handle case where success body doesn't contain accessToken unexpectedly
             setError('Login failed: Invalid response');

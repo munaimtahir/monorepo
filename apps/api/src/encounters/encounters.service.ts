@@ -231,16 +231,6 @@ export class EncountersService {
             );
           }
 
-          if (
-            existingEncounter.status === encounterStates.FINALIZED ||
-            existingEncounter.status === encounterStates.DOCUMENTED
-          ) {
-            throw new DomainException(
-              'ENCOUNTER_STATE_INVALID',
-              'Cannot update preparation after encounter finalization',
-            );
-          }
-
           const sampleCollectedAt = new Date(dto.prep.sample_collected_at);
           const sampleReceivedAt = dto.prep.sample_received_at
             ? new Date(dto.prep.sample_received_at)

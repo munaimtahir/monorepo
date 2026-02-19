@@ -834,6 +834,7 @@ export default function EncounterDetailPage() {
     return documentTypeOptions(encounter.type);
   }, [encounter]);
 
+  const encounterStatus = (encounter?.status ?? '').toUpperCase();
   const orderedLabTests: LabOrderedTest[] = encounterLabTests?.data ?? [];
   const hasOrderedLabTests = orderedLabTests.length > 0;
   const allLabTestsVerified =
@@ -841,7 +842,7 @@ export default function EncounterDetailPage() {
     orderedLabTests.every((item) => item.orderItem.status === 'VERIFIED');
   const prepComplete = encounter?.prep_complete === true;
   const canOrderLabTests =
-    prepComplete && (encounter?.status === 'PREP' || encounter?.status === 'IN_PROGRESS');
+    prepComplete && (encounterStatus === 'PREP' || encounterStatus === 'IN_PROGRESS');
   const prepFieldErrorFor = (field: string): string | null => {
     const nested = prepFieldErrors[`prep.${field}`];
     if (nested && nested.length > 0) {
@@ -1536,7 +1537,10 @@ export default function EncounterDetailPage() {
 
       <div className="rounded border bg-white p-6 shadow mb-6">
         <h2 className="text-lg font-semibold mb-4">Preparation Data</h2>
-        {encounter.status === 'CREATED' && (
+        <p className="text-sm text-slate-600 mb-3">
+          <span className="font-medium">Current status:</span> {encounter.status}
+        </p>
+        {encounterStatus === 'CREATED' && (
           <div className="mb-4">
             <p className="text-sm text-gray-600 mb-3">
               {encounter.type === 'LAB'
@@ -1556,9 +1560,9 @@ export default function EncounterDetailPage() {
           </div>
         )}
 
-        {encounter.status !== 'CREATED' && prepLoading ? (
+        {encounterStatus !== 'CREATED' && prepLoading ? (
           <p className="text-sm text-gray-600">Loading prep...</p>
-        ) : encounter.status !== 'CREATED' ? (
+        ) : encounterStatus !== 'CREATED' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-5">
             {prepRows.map(([label, value]) => (
               <p key={label}>
@@ -1572,10 +1576,7 @@ export default function EncounterDetailPage() {
           </div>
         ) : null}
 
-        {(encounter.status === 'CREATED' ||
-          encounter.status === 'PREP' ||
-          (encounter.type === 'LAB' && encounter.status === 'IN_PROGRESS')) && (
-          <div className="space-y-4">
+        <div className="space-y-4">
             {encounter.type === 'LAB' && (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1931,26 +1932,29 @@ export default function EncounterDetailPage() {
                 disabled={isSavingPrep}
                 className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-60"
               >
-                {isSavingPrep ? 'Saving...' : 'Save Prep'}
+                {isSavingPrep ? 'Saving...' : 'Save preparation'}
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  void startMain();
-                }}
-                disabled={isStartingMain || encounter.status === 'CREATED'}
-                className="rounded bg-gray-900 px-4 py-2 text-white hover:bg-gray-700 disabled:opacity-60"
-              >
-                {isStartingMain ? 'Starting...' : 'Proceed to MAIN'}
-              </button>
-              {encounter.status === 'CREATED' && (
-                <span className="text-sm text-amber-700">
-                  Proceed to MAIN is available after you click Start preparation above.
-                </span>
+              {encounter.type !== 'LAB' && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void startMain();
+                    }}
+                    disabled={isStartingMain || encounterStatus !== 'PREP'}
+                    className="rounded bg-gray-900 px-4 py-2 text-white hover:bg-gray-700 disabled:opacity-60"
+                  >
+                    {isStartingMain ? 'Starting...' : 'Proceed to MAIN'}
+                  </button>
+                  {encounterStatus !== 'PREP' && (
+                    <span className="text-sm text-amber-700">
+                      Proceed to MAIN is available after encounter is in PREP.
+                    </span>
+                  )}
+                </>
               )}
             </div>
-          </div>
-        )}
+        </div>
       </div>
 
       <div className="rounded border bg-white p-6 shadow mb-6">
@@ -1971,7 +1975,7 @@ export default function EncounterDetailPage() {
           </div>
         )}
 
-        {encounter.status === 'IN_PROGRESS' && (
+        {encounterStatus === 'IN_PROGRESS' && (
           <div className="space-y-4">
             {encounter.type === 'LAB' && (
               <p className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
@@ -2289,8 +2293,8 @@ export default function EncounterDetailPage() {
                   </p>
                 )}
                 {prepComplete &&
-                  encounter.status !== 'PREP' &&
-                  encounter.status !== 'IN_PROGRESS' && (
+                  encounterStatus !== 'PREP' &&
+                  encounterStatus !== 'IN_PROGRESS' && (
                     <p className="mt-3 text-sm text-amber-700">
                       Ordering is allowed only while encounter is PREP or IN_PROGRESS.
                     </p>
@@ -2362,7 +2366,7 @@ export default function EncounterDetailPage() {
                                     {parameter.name}
                                   </td>
                                   <td className="border border-gray-200 px-2 py-2">
-                                    {encounter.status === 'IN_PROGRESS' &&
+                                    {encounterStatus === 'IN_PROGRESS' &&
                                     orderedTest.orderItem.status !== 'VERIFIED' ? (
                                       <input
                                         value={
@@ -2398,7 +2402,7 @@ export default function EncounterDetailPage() {
                           </tbody>
                         </table>
                       </div>
-                      {encounter.status === 'IN_PROGRESS' && (
+                      {encounterStatus === 'IN_PROGRESS' && (
                         <div className="mt-3 flex flex-wrap gap-3">
                           {orderedTest.orderItem.status !== 'VERIFIED' && (
                             <button
@@ -2439,7 +2443,7 @@ export default function EncounterDetailPage() {
         </>
       )}
 
-      {(encounter.status === 'FINALIZED' || encounter.status === 'DOCUMENTED') && (
+      {(encounterStatus === 'FINALIZED' || encounterStatus === 'DOCUMENTED') && (
         <div className="rounded border bg-white p-6 shadow">
           <h2 className="text-lg font-semibold mb-4">Document</h2>
           {documentMeta ? (
