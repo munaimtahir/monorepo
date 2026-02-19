@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import './globals.css';
 import { Providers } from '@/components/providers';
 import { ConditionalAuth } from '@/components/auth/ConditionalAuth';
@@ -29,7 +30,9 @@ export default function RootLayout({
                     </Link>
                 </nav>
                 <Providers>
-                    <ConditionalAuth>{children}</ConditionalAuth>
+                    <Suspense fallback={<>{children}</>}>
+                        <ConditionalAuth>{children}</ConditionalAuth>
+                    </Suspense>
                 </Providers>
             </body>
         </html>

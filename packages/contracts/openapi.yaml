@@ -249,6 +249,29 @@ paths:
           $ref: '#/components/responses/NotFoundError'
         '500':
           $ref: '#/components/responses/UnexpectedError'
+  /encounters/{id}/billing:
+    get:
+      summary: Get billing (invoice and payments) for an encounter
+      operationId: getEncounterBilling
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantIdHeader'
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '200':
+          description: Invoice and payments, or null if no invoice exists yet
+          content:
+            application/json:
+              schema:
+                nullable: true
+                oneOf:
+                  - $ref: '#/components/schemas/RecordPaymentResponse'
+                  - type: 'null'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/UnexpectedError'
   /encounters/{id}/payments:
     post:
       summary: Record a payment for an encounter

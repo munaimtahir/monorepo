@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useForm } from 'react-hook-form';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { client } from '@/lib/api';
@@ -12,7 +13,7 @@ type FormData = {
     tenantId?: string;
 };
 
-export default function LoginPage() {
+function LoginForm() {
     const { register, handleSubmit, formState: { errors } } = useForm<FormData>();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -122,5 +123,17 @@ export default function LoginPage() {
                 </form>
             </div>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex min-h-screen items-center justify-center bg-gray-50">
+                <p className="text-gray-500">Loading...</p>
+            </div>
+        }>
+            <LoginForm />
+        </Suspense>
     );
 }

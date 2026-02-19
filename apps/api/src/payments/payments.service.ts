@@ -126,4 +126,59 @@ export class PaymentsService {
       })),
     };
   }
+
+  async getBillingForEncounter(
+    encounterId: string,
+  ): Promise<RecordPaymentResponse | null> {
+    const tenantId = this.tenantId;
+
+    const encounter = await this.prisma.encounter.findFirst({
+      where: { id: encounterId, tenantId },
+      select: { id: true },
+    });
+
+    if (!encounter) {
+      throw new NotFoundException('Encounter not found');
+    }
+
+    const invoice = await this.prisma.invoice.findFirst({
+      where: { tenantId, encounterId },
+      include: {
+        payments: { orderBy: { receivedAt: 'asc' } },
+      },
+    });
+
+    if (!invoice) {
+      return null;
+    }
+
+    const totalAmount = Number(invoice.totalAmount);
+    const paidAmount = invoice.payments.reduce(
+      (sum, p) => sum + Number(p.amount),
+      0,
+    );
+    const status =
+      paidAmount >= totalAmount
+        ? ('PAID' as const)
+        : paidAmount > 0
+          ? ('PARTIAL' as const)
+          : ('UNPAID' as const);
+
+    return {
+      invoice: {
+        invoice_id: invoice.id,
+        encounter_id: invoice.encounterId ?? encounterId,
+        total_amount: totalAmount,
+        paid_amount: paidAmount,
+        status,
+      },
+      payments: invoice.payments.map((p) => ({
+        id: p.id,
+        amount: Number(p.amount),
+        method: p.method,
+        receivedAt: p.receivedAt.toISOString(),
+        reference: p.reference ?? undefined,
+      })),
+    };
+  }
 }

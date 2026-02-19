@@ -142,6 +142,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/encounters/{id}/billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get billing (invoice and payments) for an encounter */
+        get: operations["getEncounterBilling"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/encounters/{id}/payments": {
         parameters: {
             query?: never;
@@ -1307,6 +1324,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Encounter"];
+                };
+            };
+            404: components["responses"]["NotFoundError"];
+            500: components["responses"]["UnexpectedError"];
+        };
+    };
+    getEncounterBilling: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description DEV ONLY. Ignored in production. For local testing when hostname is localhost. */
+                "x-tenant-id"?: components["parameters"]["TenantIdHeader"];
+            };
+            path: {
+                id: components["parameters"]["IdPathParam"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invoice and payments, or null if no invoice exists yet */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": (components["schemas"]["RecordPaymentResponse"] | null) | null;
                 };
             };
             404: components["responses"]["NotFoundError"];

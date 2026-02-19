@@ -42,6 +42,11 @@ export class EncountersController {
     return this.service.findAll(Number(page) || 1, { patientId, type, status });
   }
 
+  @Get(':id/billing')
+  getBilling(@Param('id') id: string) {
+    return this.paymentsService.getBillingForEncounter(id);
+  }
+
   @Get(':id')
   findById(@Param('id') id: string) {
     return this.service.findById(id);
