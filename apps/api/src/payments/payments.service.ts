@@ -148,8 +148,7 @@ export class PaymentsService {
       },
     });
 
-    if (!invoice) D,,
-    
+    if (!invoice) {
       return null;
     }
 
