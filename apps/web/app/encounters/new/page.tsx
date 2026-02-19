@@ -7,6 +7,8 @@ import { useQuery } from '@tanstack/react-query';
 import type { paths } from '@vexel/contracts';
 import { client } from '@/lib/api';
 import { parseApiError } from '@/lib/api-errors';
+import { IdentityHeader } from '@/components/identity/IdentityHeader';
+import { mapIdentityHeader } from '@/lib/identity/mapIdentity';
 
 type PatientsResponse =
   paths['/patients']['get']['responses'][200]['content']['application/json'];
@@ -63,6 +65,19 @@ function CreateEncounterContent() {
   });
 
   const patients = useMemo(() => data?.data ?? [], [data]);
+  const selectedPatient = useMemo(
+    () => patients.find((p: Patient) => p.id === selectedPatientId),
+    [patients, selectedPatientId],
+  );
+  const identityProps = useMemo(
+    () =>
+      selectedPatient
+        ? mapIdentityHeader({
+            patient: selectedPatient as unknown as Record<string, unknown>,
+          })
+        : null,
+    [selectedPatient],
+  );
 
   useEffect(() => {
     if (preferredPatientId) {
@@ -117,10 +132,16 @@ function CreateEncounterContent() {
         </div>
       )}
       {queryError && (
-        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
+        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700" role="alert">
           {queryError instanceof Error
             ? queryError.message
             : 'Failed to load patients'}
+        </div>
+      )}
+
+      {identityProps && (
+        <div className="mb-6">
+          <IdentityHeader {...identityProps} />
         </div>
       )}
 

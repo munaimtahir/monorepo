@@ -80,7 +80,7 @@ export default function PatientsPage() {
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reg No</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reg #</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOB</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
@@ -89,16 +89,40 @@ export default function PatientsPage() {
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {data?.data?.map((patient: Patient) => (
-                            <tr key={patient.id ?? `${patient.name}-${patient.createdAt}`}>
-                                <td className="px-6 py-4 whitespace-nowrap">{patient.regNo || '-'}</td>
-                                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{patient.name}</td>
+                            <tr
+                                key={patient.id ?? `${patient.name}-${patient.createdAt}`}
+                                className="hover:bg-gray-50"
+                            >
+                                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                                    {patient.id ? (
+                                        <Link href={`/patients/${patient.id}`} className="text-blue-600 underline focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            {patient.regNo ?? '—'}
+                                        </Link>
+                                    ) : (
+                                        patient.regNo ?? '—'
+                                    )}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                    {patient.id ? (
+                                        <Link href={`/patients/${patient.id}`} className="text-gray-900 hover:text-blue-600 font-medium">
+                                            {patient.name}
+                                        </Link>
+                                    ) : (
+                                        patient.name
+                                    )}
+                                </td>
                                 <td className="px-6 py-4 whitespace-nowrap">{patient.dob ? new Date(patient.dob).toLocaleDateString() : '-'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap capitalize">{patient.gender || '-'}</td>
                                 <td className="px-6 py-4 whitespace-nowrap">
                                     {patient.id ? (
-                                        <Link href={`/encounters/new?patientId=${patient.id}`} className="text-blue-600 underline">
-                                            Create encounter
-                                        </Link>
+                                        <>
+                                            <Link href={`/encounters/new?patientId=${patient.id}`} className="text-blue-600 underline mr-3">
+                                                Create visit
+                                            </Link>
+                                            <Link href={`/patients/${patient.id}`} className="text-gray-600 underline">
+                                                Detail
+                                            </Link>
+                                        </>
                                     ) : (
                                         '-'
                                     )}

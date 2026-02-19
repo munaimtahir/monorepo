@@ -1,8 +1,8 @@
 'use client';
 import { useForm } from 'react-hook-form';
+import { useRouter } from 'next/navigation';
 import { client } from '@/lib/api';
 import { useState } from 'react';
-import Link from 'next/link';
 import { parseApiError, type FieldErrors } from '@/lib/api-errors';
 import type { paths } from '@vexel/contracts';
 
@@ -16,15 +16,16 @@ type PatientForm = {
 type CreatedPatient = paths['/patients']['post']['responses'][201]['content']['application/json'];
 
 export default function RegisterPatientPage() {
+    const router = useRouter();
     const { register, handleSubmit, formState: { errors } } = useForm<PatientForm>();
     const [error, setError] = useState('');
     const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-    const [createdPatient, setCreatedPatient] = useState<CreatedPatient | null>(null);
+    const [successMessage, setSuccessMessage] = useState('');
 
     const onSubmit = async (data: PatientForm) => {
         setError('');
         setFieldErrors({});
-        setCreatedPatient(null);
+        setSuccessMessage('');
 
         const { data: created, error: apiError } = await client.POST('/patients', {
             body: data
@@ -42,25 +43,23 @@ export default function RegisterPatientPage() {
             return;
         }
 
-        setCreatedPatient(created);
+        setSuccessMessage(`Patient registered. Reg #: ${created.regNo ?? '—'}`);
+        if (created.id) {
+            setTimeout(() => router.push(`/patients/${created.id}`), 800);
+        }
     };
 
     return (
         <div className="p-8 max-w-2xl mx-auto">
             <h1 className="text-2xl font-bold mb-6">Register Patient</h1>
-            {error && <div className="text-red-500 mb-4">{error}</div>}
-            {createdPatient && (
-                <div className="mb-4 rounded border border-green-200 bg-green-50 p-4 text-sm">
-                    <p className="font-semibold text-green-800">Patient registered</p>
-                    <p className="text-green-900">Reg No: {createdPatient.regNo ?? '-'}</p>
-                    <div className="mt-3 flex gap-3">
-                        <Link href="/patients" className="text-green-800 underline">Back to patients</Link>
-                        {createdPatient.id && (
-                            <Link href={`/encounters/new?patientId=${createdPatient.id}`} className="text-green-800 underline">
-                                Create encounter
-                            </Link>
-                        )}
-                    </div>
+            {error && (
+                <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700" role="alert">
+                    {error}
+                </div>
+            )}
+            {successMessage && (
+                <div className="mb-4 rounded border border-green-200 bg-green-50 p-3 text-green-800" role="status">
+                    {successMessage} Redirecting to patient detail…
                 </div>
             )}
 

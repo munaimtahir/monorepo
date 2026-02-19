@@ -7,6 +7,8 @@ import { useQuery } from '@tanstack/react-query';
 import type { paths } from '@vexel/contracts';
 import { client } from '@/lib/api';
 import { parseApiError } from '@/lib/api-errors';
+import { IdentityHeader } from '@/components/identity/IdentityHeader';
+import { mapIdentityHeader } from '@/lib/identity/mapIdentity';
 
 type Encounter =
   paths['/encounters/{id}']['get']['responses'][200]['content']['application/json'];
@@ -1231,6 +1233,20 @@ export default function EncounterDetailPage() {
     URL.revokeObjectURL(url);
   };
 
+  const identityProps = useMemo(
+    () =>
+      mapIdentityHeader({
+        patient: patient as unknown as Record<string, unknown>,
+        encounter: encounter as unknown as Record<string, unknown>,
+        moduleRef:
+          encounter.type === 'LAB'
+            ? (encounter as unknown as Record<string, unknown>)
+            : undefined,
+        moduleType: 'LIMS',
+      }),
+    [patient, encounter],
+  );
+
   return (
     <div className="p-8 max-w-3xl mx-auto">
       <div className="mb-6 flex items-center justify-between">
@@ -1240,8 +1256,12 @@ export default function EncounterDetailPage() {
         </Link>
       </div>
 
+      <div className="mb-6">
+        <IdentityHeader {...identityProps} />
+      </div>
+
       {patientError && (
-        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
+        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700" role="alert">
           {patientError instanceof Error
             ? patientError.message
             : 'Failed to load patient details'}
@@ -1249,24 +1269,24 @@ export default function EncounterDetailPage() {
       )}
 
       {prepError && (
-        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
+        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700" role="alert">
           {prepError instanceof Error ? prepError.message : 'Failed to load prep data'}
         </div>
       )}
       {mainError && (
-        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
+        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700" role="alert">
           {mainError instanceof Error ? mainError.message : 'Failed to load main data'}
         </div>
       )}
       {labCatalogError && (
-        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
+        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700" role="alert">
           {labCatalogError instanceof Error
             ? labCatalogError.message
             : 'Failed to load LAB catalog'}
         </div>
       )}
       {encounterLabTestsError && (
-        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
+        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700" role="alert">
           {encounterLabTestsError instanceof Error
             ? encounterLabTestsError.message
             : 'Failed to load encounter LAB tests'}
@@ -1274,29 +1294,18 @@ export default function EncounterDetailPage() {
       )}
 
       {actionError && (
-        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700">
+        <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-red-700" role="alert">
           {actionError}
         </div>
       )}
       {actionSuccess && (
-        <div className="mb-4 rounded border border-green-200 bg-green-50 p-3 text-green-700">
+        <div className="mb-4 rounded border border-green-200 bg-green-50 p-3 text-green-700" role="status">
           {actionSuccess}
         </div>
       )}
 
       <div className="rounded border bg-white p-6 shadow mb-6">
         <div className="grid grid-cols-1 gap-4 text-sm">
-          <p>
-            <span className="font-semibold">Patient:</span> {patient?.name ?? '-'}
-          </p>
-          <p>
-            <span className="font-semibold">Reg No:</span>{' '}
-            {patientLoading ? 'Loading...' : patient?.regNo ?? '-'}
-          </p>
-          <p>
-            <span className="font-semibold">Encounter Code:</span>{' '}
-            {encounter.encounterCode}
-          </p>
           <p>
             <span className="font-semibold">Status:</span> {encounter.status}
           </p>
@@ -2066,6 +2075,7 @@ export default function EncounterDetailPage() {
                         <table className="min-w-full border border-gray-200 text-sm">
                           <thead>
                             <tr className="bg-gray-50 text-left">
+                              <th className="border border-gray-200 px-2 py-2">Reg #</th>
                               <th className="border border-gray-200 px-2 py-2">Parameter</th>
                               <th className="border border-gray-200 px-2 py-2">Result</th>
                               <th className="border border-gray-200 px-2 py-2">Unit</th>
@@ -2088,6 +2098,9 @@ export default function EncounterDetailPage() {
 
                               return (
                                 <tr key={parameter.id}>
+                                  <td className="border border-gray-200 px-2 py-2 font-medium text-gray-700">
+                                    {patient?.regNo ?? '—'}
+                                  </td>
                                   <td className="border border-gray-200 px-2 py-2">
                                     {parameter.name}
                                   </td>
