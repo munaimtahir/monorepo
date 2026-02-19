@@ -1,4 +1,4 @@
-import { DocumentStatus } from '@prisma/client';
+import { DocumentStatus, type LabOrderItemStatus } from '@prisma/client';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { deriveLabEncounterStatus } from '../common/lab/lab-derived-status.util';
@@ -101,7 +101,7 @@ export class AdminService {
           })
           .then((d) => new Set(d.map((x) => x.encounterId))),
       ]);
-      const itemsMap = new Map<string, { status: string }[]>();
+      const itemsMap = new Map<string, { status: LabOrderItemStatus }[]>();
       for (const item of itemsByEncounter) {
         const list = itemsMap.get(item.encounterId) ?? [];
         list.push({ status: item.status });

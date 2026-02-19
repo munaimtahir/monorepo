@@ -46,6 +46,10 @@ type VerifyLabResultsRequest =
   NonNullable<
     paths['/encounters/{id}:lab-verify']['post']['requestBody']
   >['content']['application/json'];
+type RecordPaymentRequest =
+  NonNullable<
+    paths['/encounters/{id}/payments']['post']['requestBody']
+  >['content']['application/json'];
 type RecordPaymentResponse =
   paths['/encounters/{id}/payments']['post']['responses'][200]['content']['application/json'];
 
@@ -479,8 +483,13 @@ export default function EncounterDetailPage() {
     useState<RequestedDocumentType>('ENCOUNTER_SUMMARY_V1');
   const [billingInvoice, setBillingInvoice] = useState<RecordPaymentResponse['invoice'] | null>(null);
   const [billingPayments, setBillingPayments] = useState<RecordPaymentResponse['payments']>([]);
-  const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'CASH' as const, reference: '' });
+  const [paymentForm, setPaymentForm] = useState<{
+    amount: string;
+    method: RecordPaymentRequest['method'];
+    reference: string;
+  }>({ amount: '', method: 'CASH', reference: '' });
   const [isRecordingPayment, setIsRecordingPayment] = useState(false);
+  const [isStartingPrep, setIsStartingPrep] = useState(false);
 
   const {
     data: encounter,
@@ -871,6 +880,16 @@ export default function EncounterDetailPage() {
     });
   }, [encounterLabTests?.data]);
 
+  const identityProps = useMemo(
+    () =>
+      mapIdentityHeader({
+        patient: patient as unknown as Record<string, unknown>,
+        encounter: encounter as unknown as Record<string, unknown>,
+        moduleRef: undefined,
+      }),
+    [patient, encounter],
+  );
+
   if (encounterLoading) {
     return <div className="p-8">Loading encounter...</div>;
   }
@@ -924,6 +943,28 @@ export default function EncounterDetailPage() {
 
     setActionSuccess('Prep saved');
     await refetchPrep();
+  };
+
+  const startPrep = async () => {
+    setActionError('');
+    setActionSuccess('');
+    setIsStartingPrep(true);
+
+    const { error } = await client.POST('/encounters/{id}:start-prep', {
+      params: {
+        path: { id: encounter.id },
+      },
+    });
+
+    setIsStartingPrep(false);
+
+    if (error) {
+      setActionError(parseApiError(error, 'Failed to start preparation').message);
+      return;
+    }
+
+    setActionSuccess('Encounter moved to PREP');
+    await Promise.all([refetchEncounter(), refetchPrep()]);
   };
 
   const startMain = async () => {
@@ -1239,16 +1280,6 @@ export default function EncounterDetailPage() {
     URL.revokeObjectURL(url);
   };
 
-  const identityProps = useMemo(
-    () =>
-      mapIdentityHeader({
-        patient: patient as unknown as Record<string, unknown>,
-        encounter: encounter as unknown as Record<string, unknown>,
-        moduleRef: undefined,
-      }),
-    [patient, encounter],
-  );
-
   return (
     <div className="p-8 max-w-3xl mx-auto">
       <div className="mb-6 flex items-center justify-between">
@@ -1303,6 +1334,21 @@ export default function EncounterDetailPage() {
       {actionSuccess && (
         <div className="mb-4 rounded border border-green-200 bg-green-50 p-3 text-green-700" role="status">
           {actionSuccess}
+        </div>
+      )}
+
+      {encounter.type === 'LAB' && (
+        <div className="mb-6 rounded border border-slate-200 bg-slate-50 p-4">
+          <h3 className="text-sm font-semibold text-slate-800 mb-2">LAB workflow (complete in order)</h3>
+          <ol className="text-xs text-slate-600 list-decimal list-inside space-y-1">
+            <li>Start preparation (Preparation Data section)</li>
+            <li>Save Prep → Proceed to MAIN</li>
+            <li>Add test(s) from catalog</li>
+            <li>Enter results → Submit Results per test</li>
+            <li>Verify each order item</li>
+            <li>Finalize Encounter (Main Data section)</li>
+            <li>Publish LAB Report → Download PDF (Document section)</li>
+          </ol>
         </div>
       )}
 
@@ -1436,9 +1482,27 @@ export default function EncounterDetailPage() {
 
       <div className="rounded border bg-white p-6 shadow mb-6">
         <h2 className="text-lg font-semibold mb-4">Preparation Data</h2>
-        {prepLoading ? (
+        {encounter.status === 'CREATED' && (
+          <div className="mb-4">
+            <p className="text-sm text-gray-600 mb-3">
+              Start preparation to add lab tests and enter results.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                void startPrep();
+              }}
+              disabled={isStartingPrep}
+              className="rounded bg-gray-900 px-4 py-2 text-white hover:bg-gray-700 disabled:opacity-60"
+            >
+              {isStartingPrep ? 'Starting...' : 'Start preparation'}
+            </button>
+          </div>
+        )}
+
+        {encounter.status !== 'CREATED' && prepLoading ? (
           <p className="text-sm text-gray-600">Loading prep...</p>
-        ) : (
+        ) : encounter.status !== 'CREATED' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-5">
             {prepRows.map(([label, value]) => (
               <p key={label}>
@@ -1450,9 +1514,9 @@ export default function EncounterDetailPage() {
               {prep?.updatedAt ? new Date(prep.updatedAt).toLocaleString() : '-'}
             </p>
           </div>
-        )}
+        ) : null}
 
-        {encounter.status === 'PREP' && (
+        {(encounter.status === 'CREATED' || encounter.status === 'PREP') && (
           <div className="space-y-4">
             {encounter.type === 'LAB' && (
               <>
@@ -1790,7 +1854,7 @@ export default function EncounterDetailPage() {
               </div>
             )}
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => {
@@ -1806,11 +1870,16 @@ export default function EncounterDetailPage() {
                 onClick={() => {
                   void startMain();
                 }}
-                disabled={isStartingMain}
+                disabled={isStartingMain || encounter.status === 'CREATED'}
                 className="rounded bg-gray-900 px-4 py-2 text-white hover:bg-gray-700 disabled:opacity-60"
               >
                 {isStartingMain ? 'Starting...' : 'Proceed to MAIN'}
               </button>
+              {encounter.status === 'CREATED' && (
+                <span className="text-sm text-amber-700">
+                  Proceed to MAIN is available after you click Start preparation above.
+                </span>
+              )}
             </div>
           </div>
         )}
@@ -2148,7 +2217,9 @@ export default function EncounterDetailPage() {
                 </div>
                 {encounter.status !== 'PREP' && encounter.status !== 'IN_PROGRESS' && (
                   <p className="mt-3 text-sm text-amber-700">
-                    Ordering is allowed only while encounter is PREP or IN_PROGRESS.
+                    {encounter.status === 'CREATED'
+                      ? 'Start preparation first (see Preparation Data section).'
+                      : 'Ordering is allowed only while encounter is PREP or IN_PROGRESS.'}
                   </p>
                 )}
               </>
@@ -2319,7 +2390,9 @@ export default function EncounterDetailPage() {
             </div>
           ) : (
             <p className="text-sm text-gray-600 mb-5">
-              No document metadata loaded yet.
+              {encounter.type === 'LAB'
+                ? 'Publish the LAB report below to generate the PDF.'
+                : 'No document metadata loaded yet.'}
             </p>
           )}
 

@@ -50,6 +50,7 @@ import {
   type RadPrepSaveRequest,
 } from './encounter-prep.types';
 import { CreateEncounterDto } from './dto/create-encounter.dto';
+import { UpdateEncounterPrepCommandDto } from './dto/update-encounter-prep-command.dto';
 
 const encounterStates = {
   CREATED: 'CREATED',
@@ -62,6 +63,10 @@ const encounterStates = {
 type EncounterState = (typeof encounterStates)[keyof typeof encounterStates];
 
 const encounterTypes: EncounterType[] = ['LAB', 'RAD', 'OPD', 'BB', 'IPD'];
+type EncounterSnapshot = Encounter & {
+  labEncounterStatus?: LabEncounterStatus;
+  prep_complete: boolean;
+};
 
 @Injectable()
 export class EncountersService {
@@ -182,13 +187,125 @@ export class EncountersService {
       this.prisma.encounter.count({ where }),
     ]);
 
-    const dataWithStatus = await this.withLabEncounterStatusForList(data);
-    return { data: dataWithStatus, total };
+    const dataWithSnapshot = await this.withLabEncounterStatusForList(data);
+    return { data: dataWithSnapshot, total };
   }
 
   async findById(id: string) {
     const encounter = await this.findEncounterById(id);
-    return this.withLabEncounterStatus(encounter);
+    return this.withEncounterSnapshot(encounter);
+  }
+
+  async updateEncounterPrepCommand(
+    dto: UpdateEncounterPrepCommandDto,
+  ): Promise<EncounterSnapshot> {
+    const tenantId = this.tenantId;
+    const actorUserId = this.getActorIdentity();
+
+    return traceSpan(
+      {
+        span: 'lims.command.update_encounter_prep',
+        requestId: this.cls.get<string>('REQUEST_ID'),
+        tenantId,
+        metadata: {
+          encounterId: dto.encounter_id,
+        },
+      },
+      async () => {
+        const encounter = await this.prisma.$transaction(async (tx) => {
+          const existingEncounter = await tx.encounter.findFirst({
+            where: {
+              id: dto.encounter_id,
+              tenantId,
+            },
+          });
+
+          if (!existingEncounter) {
+            throw new NotFoundException('Encounter not found');
+          }
+
+          if (existingEncounter.type !== 'LAB') {
+            throw new DomainException(
+              'INVALID_ENCOUNTER_TYPE',
+              'updateEncounterPrep is only valid for LAB encounters',
+            );
+          }
+
+          if (
+            existingEncounter.status === encounterStates.FINALIZED ||
+            existingEncounter.status === encounterStates.DOCUMENTED
+          ) {
+            throw new DomainException(
+              'ENCOUNTER_STATE_INVALID',
+              'Cannot update preparation after encounter finalization',
+            );
+          }
+
+          const sampleCollectedAt = new Date(dto.prep.sample_collected_at);
+          const sampleReceivedAt = dto.prep.sample_received_at
+            ? new Date(dto.prep.sample_received_at)
+            : null;
+
+          await tx.labEncounterPrep.upsert({
+            where: {
+              tenantId_encounterId: {
+                tenantId,
+                encounterId: existingEncounter.id,
+              },
+            },
+            create: {
+              tenantId,
+              encounterId: existingEncounter.id,
+              collectedAt: sampleCollectedAt,
+              receivedAt: sampleReceivedAt,
+            },
+            update: {
+              collectedAt: sampleCollectedAt,
+              receivedAt: sampleReceivedAt,
+            },
+          });
+
+          const nextStatus =
+            existingEncounter.status === encounterStates.CREATED ||
+            existingEncounter.status === encounterStates.PREP
+              ? encounterStates.IN_PROGRESS
+              : existingEncounter.status;
+
+          const updatedEncounter =
+            nextStatus === existingEncounter.status
+              ? existingEncounter
+              : await tx.encounter.update({
+                  where: {
+                    id: existingEncounter.id,
+                  },
+                  data: {
+                    status: nextStatus,
+                  },
+                });
+
+          await this.writeAuditEvent(tx, {
+            actorUserId,
+            eventType: 'lims.encounter.prep_updated',
+            entityType: 'encounter',
+            entityId: existingEncounter.id,
+            payload: {
+              encounter_id: existingEncounter.id,
+              previous_status: existingEncounter.status,
+              next_status: updatedEncounter.status,
+              prep: {
+                sample_collected_at: dto.prep.sample_collected_at,
+                sample_received_at: dto.prep.sample_received_at ?? null,
+                notes: dto.prep.notes ?? null,
+              },
+            },
+          });
+
+          return updatedEncounter;
+        });
+
+        return this.withEncounterSnapshot(encounter);
+      },
+    );
   }
 
   async startPrep(id: string) {
