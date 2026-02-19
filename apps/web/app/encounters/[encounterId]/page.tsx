@@ -2271,7 +2271,15 @@ export default function EncounterDetailPage() {
       {encounter.type === 'LAB' && (
         <>
           <div className="rounded border bg-white p-6 shadow mb-6">
-            <h2 className="text-lg font-semibold mb-4">Order Tests</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">Order Tests</h2>
+              <Link
+                href={`/operator/orders/${encounterId}`}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                Open Orders Page →
+              </Link>
+            </div>
             {labCatalogLoading ? (
               <p className="text-sm text-gray-600">Loading LAB catalog...</p>
             ) : (

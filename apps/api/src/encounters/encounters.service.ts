@@ -231,6 +231,21 @@ export class EncountersService {
             );
           }
 
+          // Validate that at least one LAB order exists before allowing sample collection
+          const orderCount = await tx.labOrderItem.count({
+            where: {
+              tenantId,
+              encounterId: existingEncounter.id,
+            },
+          });
+
+          if (orderCount === 0) {
+            throw new DomainException(
+              'LAB_ORDER_REQUIRED_FOR_SAMPLE_COLLECTION',
+              'At least one LAB test must be ordered before marking sample as collected',
+            );
+          }
+
           const sampleCollectedAt = new Date(dto.prep.sample_collected_at);
           const sampleReceivedAt = dto.prep.sample_received_at
             ? new Date(dto.prep.sample_received_at)

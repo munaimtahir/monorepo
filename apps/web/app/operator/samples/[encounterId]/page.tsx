@@ -10,6 +10,9 @@ import { EncounterHeader } from '@/components/operator/EncounterHeader';
 import { mapIdentityHeader } from '@/lib/identity/mapIdentity';
 import type { paths } from '@vexel/contracts';
 
+type ListEncounterLabTestsResponse =
+  paths['/encounters/{id}/lab-tests']['get']['responses'][200]['content']['application/json'];
+
 type Encounter = paths['/encounters/{id}']['get']['responses'][200]['content']['application/json'];
 type Patient = paths['/patients/{id}']['get']['responses'][200]['content']['application/json'];
 type EncounterPrepResponse =
@@ -59,6 +62,19 @@ export default function OperatorSamplesDetailPage() {
       if (error) throw new Error(parseApiError(error, 'Failed to load prep details').message);
       if (!data) throw new Error('Prep details not found');
       return data as EncounterPrepResponse;
+    },
+  });
+
+  const { data: encounterLabTests } = useQuery<ListEncounterLabTestsResponse>({
+    queryKey: ['encounter-lab-tests', encounterId],
+    enabled: !!encounterId,
+    queryFn: async () => {
+      if (!encounterId) return { data: [], total: 0 };
+      const { data, error } = await client.GET('/encounters/{id}/lab-tests', {
+        params: { path: { id: encounterId } },
+      });
+      if (error) throw new Error(parseApiError(error, 'Failed to load ordered tests').message);
+      return data ?? { data: [], total: 0 };
     },
   });
 
@@ -132,16 +148,33 @@ export default function OperatorSamplesDetailPage() {
         <p className="text-sm text-gray-600 mb-4">
           Single-branch flow: when phlebotomist marks sample, collected and received are set together.
         </p>
+
+        {encounterLabTests && encounterLabTests.data.length === 0 && (
+          <div className="mb-4 rounded border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+            <p className="font-semibold mb-1">No tests ordered yet</p>
+            <p className="mb-2">You must add at least one test to the order before marking samples as collected.</p>
+            <Link
+              href={operatorRoutes.ordersDetail(encounterId)}
+              className="inline-block rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+            >
+              Go to Orders to Add Tests →
+            </Link>
+          </div>
+        )}
+
         <div className="mb-4 grid grid-cols-1 gap-2 text-sm text-gray-700">
           <p><span className="font-semibold">Collected At:</span> {prepLoading ? 'Loading…' : collectedAt}</p>
           <p><span className="font-semibold">Received At:</span> {prepLoading ? 'Loading…' : receivedAt}</p>
           <p><span className="font-semibold">Prep Updated:</span> {prepLoading ? 'Loading…' : prepUpdatedAt}</p>
+          {encounterLabTests && (
+            <p><span className="font-semibold">Tests Ordered:</span> {encounterLabTests.data.length}</p>
+          )}
         </div>
         <button
           type="button"
           onClick={() => markCollectedReceived.mutate()}
-          disabled={markCollectedReceived.isPending || encounter.type !== 'LAB'}
-          className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-60"
+          disabled={markCollectedReceived.isPending || encounter.type !== 'LAB' || (encounterLabTests?.data.length ?? 0) === 0}
+          className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {markCollectedReceived.isPending ? 'Marking…' : 'Mark Collected = Received'}
         </button>
@@ -156,6 +189,14 @@ export default function OperatorSamplesDetailPage() {
               ? markCollectedReceived.error.message
               : 'Failed to mark sample'}
           </p>
+        )}
+        {(encounterLabTests?.data.length ?? 0) > 0 && (
+          <Link
+            href={operatorRoutes.resultsEntryDetail(encounterId)}
+            className="mt-4 inline-block text-sm text-blue-600 hover:underline"
+          >
+            Continue to Result Entry →
+          </Link>
         )}
       </div>
     </div>

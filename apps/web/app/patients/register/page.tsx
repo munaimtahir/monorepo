@@ -793,18 +793,28 @@ export default function RegisterPatientPage() {
                                         </div>
                                     )}
                                 </div>
-                                <Link
-                                    href={`/encounters/${createdEncounter.id}`}
-                                    className="mt-4 inline-block text-sm text-blue-600 underline"
-                                >
-                                    Open full encounter →
-                                </Link>
-                                <Link
-                                    href="/operator/samples"
-                                    className="mt-2 inline-block text-sm text-blue-600 underline"
-                                >
-                                    Continue to Samples queue →
-                                </Link>
+                                <div className="mt-4 space-y-2">
+                                    <Link
+                                        href={`/operator/orders/${createdEncounter.id}`}
+                                        className="inline-block text-sm text-blue-600 underline"
+                                    >
+                                        Add/Manage Orders →
+                                    </Link>
+                                    <Link
+                                        href={`/encounters/${createdEncounter.id}`}
+                                        className="block text-sm text-blue-600 underline"
+                                    >
+                                        Open full encounter →
+                                    </Link>
+                                    {orderedTests.length > 0 && (
+                                        <Link
+                                            href="/operator/samples"
+                                            className="block text-sm text-blue-600 underline"
+                                        >
+                                            Continue to Samples queue →
+                                        </Link>
+                                    )}
+                                </div>
                             </>
                         )}
                     </div>

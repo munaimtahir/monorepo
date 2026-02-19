@@ -86,8 +86,16 @@ export default function OperatorWorklistDetailPage() {
           Open the relevant stage directly for this encounter.
         </p>
         <div className="flex flex-wrap gap-3 text-sm">
+          {encounter.type === 'LAB' && (
+            <Link href={operatorRoutes.ordersDetail(encounterId)} className="text-blue-600 hover:underline">
+              Go to Orders
+            </Link>
+          )}
           <Link href={operatorRoutes.samplesDetail(encounterId)} className="text-blue-600 hover:underline">
             Go to Samples
+          </Link>
+          <Link href={operatorRoutes.resultsEntryDetail(encounterId)} className="text-blue-600 hover:underline">
+            Go to Result Entry
           </Link>
           <Link href={operatorRoutes.verifyDetail(encounterId)} className="text-blue-600 hover:underline">
             Go to Verify
