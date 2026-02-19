@@ -52,6 +52,8 @@ type RecordPaymentRequest =
   >['content']['application/json'];
 type RecordPaymentResponse =
   paths['/encounters/{id}/payments']['post']['responses'][200]['content']['application/json'];
+type BillingResponse =
+  paths['/encounters/{id}/billing']['get']['responses'][200]['content']['application/json'];
 type UpdateEncounterPrepCommandRequest =
   NonNullable<
     paths['/lims/commands/updateEncounterPrep']['post']['requestBody']
@@ -486,8 +488,6 @@ export default function EncounterDetailPage() {
   >({});
   const [selectedDocumentType, setSelectedDocumentType] =
     useState<RequestedDocumentType>('ENCOUNTER_SUMMARY_V1');
-  const [billingInvoice, setBillingInvoice] = useState<RecordPaymentResponse['invoice'] | null>(null);
-  const [billingPayments, setBillingPayments] = useState<RecordPaymentResponse['payments']>([]);
   const [paymentForm, setPaymentForm] = useState<{
     amount: string;
     method: RecordPaymentRequest['method'];
@@ -651,6 +651,25 @@ export default function EncounterDetailPage() {
       }
 
       return data;
+    },
+  });
+
+  const {
+    data: billingData,
+    refetch: refetchBilling,
+  } = useQuery<BillingResponse | null>({
+    queryKey: ['encounter-billing', encounterId],
+    enabled: Boolean(encounterId),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/encounters/{id}/billing', {
+        params: { path: { id: encounterId } },
+      });
+
+      if (error) {
+        throw new Error(parseApiError(error, 'Failed to load billing').message);
+      }
+
+      return data ?? null;
     },
   });
 
@@ -1436,14 +1455,14 @@ export default function EncounterDetailPage() {
 
       <div className="rounded border bg-white p-6 shadow mb-6">
         <h2 className="text-lg font-semibold mb-4">Billing</h2>
-        {billingInvoice && (
+        {billingData && (
           <div className="mb-4 text-sm">
-            <p><span className="font-semibold">Total:</span> {billingInvoice.total_amount}</p>
-            <p><span className="font-semibold">Paid:</span> {billingInvoice.paid_amount}</p>
-            <p><span className="font-semibold">Status:</span> {billingInvoice.status}</p>
-            {billingPayments.length > 0 && (
+            <p><span className="font-semibold">Total:</span> {billingData.invoice.total_amount}</p>
+            <p><span className="font-semibold">Paid:</span> {billingData.invoice.paid_amount}</p>
+            <p><span className="font-semibold">Status:</span> {billingData.invoice.status}</p>
+            {billingData.payments.length > 0 && (
               <ul className="mt-2 list-disc pl-5">
-                {billingPayments.map((p) => (
+                {billingData.payments.map((p) => (
                   <li key={p.id}>
                     {p.amount} ({p.method}) {p.receivedAt ? new Date(p.receivedAt).toLocaleString() : ''}
                   </li>
@@ -1477,12 +1496,9 @@ export default function EncounterDetailPage() {
               setActionError(parseApiError(error, 'Failed to record payment').message);
               return;
             }
-            if (data) {
-              setBillingInvoice(data.invoice);
-              setBillingPayments(data.payments);
-              setPaymentForm((prev) => ({ ...prev, amount: '', reference: '' }));
-              setActionSuccess('Payment recorded');
-            }
+            setPaymentForm((prev) => ({ ...prev, amount: '', reference: '' }));
+            setActionSuccess('Payment recorded');
+            await refetchBilling();
           }}
         >
           <div>
