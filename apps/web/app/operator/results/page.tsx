@@ -62,6 +62,11 @@ export default function OperatorResultsEntryPage() {
             if (!hasPendingEntry) {
               return null;
             }
+            const enteredCount = orderedTests.filter(
+              (item: OrderedTest) =>
+                item.orderItem.status === 'RESULTS_ENTERED' ||
+                item.orderItem.status === 'VERIFIED',
+            ).length;
 
             const patient = patientLookup[enc.patientId] ?? { name: '—', regNo: '—' };
             return {
@@ -71,6 +76,7 @@ export default function OperatorResultsEntryPage() {
               encounterCode: enc.encounterCode ?? '—',
               status: 'RECEIVED',
               updated: enc.createdAt ? new Date(enc.createdAt).toLocaleString() : '—',
+              progressBadge: `${enteredCount}/${orderedTests.length} entered`,
             } satisfies WorklistRow;
           } catch {
             return null;

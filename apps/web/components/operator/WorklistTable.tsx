@@ -11,6 +11,7 @@ export type WorklistRow = {
   /** Backend status (e.g. labEncounterStatus or status) */
   status: string | null | undefined;
   updated: string;
+  progressBadge?: string;
 };
 
 type WorklistTableProps = {
@@ -55,8 +56,15 @@ export function WorklistTable({
               <td className="whitespace-nowrap px-6 py-4 text-sm font-semibold text-slate-800">
                 {row.regNo || '—'}
               </td>
-              <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-700">
-                {row.patientName || '—'}
+              <td className="px-6 py-4 text-sm text-slate-700">
+                <div className="flex items-center gap-2">
+                  <span className="whitespace-nowrap">{row.patientName || '—'}</span>
+                  {row.progressBadge && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                      {row.progressBadge}
+                    </span>
+                  )}
+                </div>
               </td>
               <td className="whitespace-nowrap px-6 py-4 text-sm text-slate-700">
                 {row.encounterCode || '—'}
