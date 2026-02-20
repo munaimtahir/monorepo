@@ -71,13 +71,32 @@ export class LabWorkflowService {
           );
         }
 
-        const test = await tx.labTestDefinition.findFirst({
+        let test = await tx.labTestDefinition.findFirst({
           where: {
             id: dto.testId,
             tenantId,
             active: true,
           },
         });
+
+        if (!test) {
+          const catalogTest = await tx.testDefinition.findFirst({
+            where: { id: dto.testId, tenantId, status: 'active' },
+            include: {
+              parameterMaps: {
+                include: { parameter: true },
+                orderBy: { displayOrder: 'asc' },
+              },
+            },
+          });
+          if (catalogTest) {
+            const labTestId = await this.ensureLabTestFromCatalog(tx, tenantId, catalogTest);
+            const resolved = await tx.labTestDefinition.findFirst({
+              where: { id: labTestId, tenantId },
+            });
+            if (resolved) test = resolved;
+          }
+        }
 
         if (!test) {
           throw new DomainException(
@@ -608,6 +627,71 @@ export class LabWorkflowService {
       });
       throw error;
     }
+  }
+
+  /**
+   * Ensures a LabTestDefinition (and its parameters) exist that mirror the given catalog test.
+   * Used when adding a catalog test to an encounter so the existing lab workflow can run unchanged.
+   * Returns the lab test id.
+   */
+  private async ensureLabTestFromCatalog(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    catalogTest: {
+      id: string;
+      testCode: string;
+      testName: string;
+      section: string | null;
+      parameterMaps: Array<{
+        displayOrder: number;
+        parameter: { id: string; parameterName: string; parameterCode: string; unitId: string | null };
+      }>;
+    },
+  ): Promise<string> {
+    let labTest = await tx.labTestDefinition.findFirst({
+      where: {
+        tenantId,
+        code: catalogTest.testCode,
+        active: true,
+      },
+    });
+
+    if (!labTest) {
+      labTest = await tx.labTestDefinition.create({
+        data: {
+          tenantId,
+          code: catalogTest.testCode,
+          name: catalogTest.testName,
+          department: catalogTest.section?.trim() ?? 'General',
+          active: true,
+        },
+      });
+    }
+
+    for (let i = 0; i < catalogTest.parameterMaps.length; i++) {
+      const map = catalogTest.parameterMaps[i];
+      const name = map.parameter.parameterName.trim();
+      const existing = await tx.labTestParameter.findFirst({
+        where: {
+          tenantId,
+          testId: labTest.id,
+          name,
+        },
+      });
+      if (!existing) {
+        await tx.labTestParameter.create({
+          data: {
+            tenantId,
+            testId: labTest.id,
+            name,
+            displayOrder: map.displayOrder,
+            active: true,
+          },
+        });
+      }
+    }
+
+    return labTest.id;
   }
 
   private async assertLabEncounter(

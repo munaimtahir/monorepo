@@ -9,12 +9,11 @@ import { parseApiError } from '@/lib/api-errors';
 import { operatorRoutes } from '@/lib/operator/routes';
 import { EncounterHeader } from '@/components/operator/EncounterHeader';
 import { mapIdentityHeader } from '@/lib/identity/mapIdentity';
+import { useTestsForOrder } from '@/lib/sdk/use-tests-for-order';
 import type { paths } from '@vexel/contracts';
 
 type Encounter = paths['/encounters/{id}']['get']['responses'][200]['content']['application/json'];
 type Patient = paths['/patients/{id}']['get']['responses'][200]['content']['application/json'];
-type ListLabTestsResponse =
-  paths['/lab/tests']['get']['responses'][200]['content']['application/json'];
 type ListEncounterLabTestsResponse =
   paths['/encounters/{id}/lab-tests']['get']['responses'][200]['content']['application/json'];
 type AddTestToEncounterRequest =
@@ -56,15 +55,10 @@ export default function OperatorOrdersDetailPage() {
     },
   });
 
-  const { data: labCatalog, isLoading: labCatalogLoading } = useQuery<ListLabTestsResponse>({
-    queryKey: ['lab-catalog-tests'],
-    enabled: Boolean(encounterId && encounter?.type === 'LAB'),
-    queryFn: async () => {
-      const { data, error } = await client.GET('/lab/tests');
-      if (error) throw new Error(parseApiError(error, 'Failed to load LAB catalog').message);
-      return data ?? { data: [], total: 0 };
-    },
-  });
+  const {
+    data: testsForOrder,
+    isLoading: labCatalogLoading,
+  } = useTestsForOrder(Boolean(encounterId && encounter?.type === 'LAB'));
 
   const { data: encounterLabTests, refetch: refetchEncounterLabTests } = useQuery<ListEncounterLabTestsResponse>({
     queryKey: ['encounter-lab-tests', encounterId],
