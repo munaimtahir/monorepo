@@ -7,6 +7,7 @@ import { client } from '@/lib/api';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { parseApiError, type FieldErrors } from '@/lib/api-errors';
+import { useTestsForOrder } from '@/lib/sdk/use-tests-for-order';
 import type { paths } from '@vexel/contracts';
 
 type PatientForm = {
@@ -23,7 +24,6 @@ type PatientsResponse = paths['/patients']['get']['responses'][200]['content']['
 type Patient = NonNullable<PatientsResponse['data']>[number];
 type CreatedPatient = paths['/patients']['post']['responses'][201]['content']['application/json'];
 type CreatedEncounter = paths['/encounters']['post']['responses'][201]['content']['application/json'];
-type ListLabTestsResponse = paths['/lab/tests']['get']['responses'][200]['content']['application/json'];
 type ListEncounterLabTestsResponse =
     paths['/encounters/{id}/lab-tests']['get']['responses'][200]['content']['application/json'];
 type RecordPaymentRequest =
@@ -306,15 +306,9 @@ export function PatientRegistrationForm({
         }
     };
 
-    const { data: labCatalog, isLoading: labCatalogLoading } = useQuery<ListLabTestsResponse>({
-        queryKey: ['lab-catalog-tests'],
-        enabled: Boolean(createdEncounter?.id),
-        queryFn: async () => {
-            const { data, error } = await client.GET('/lab/tests');
-            if (error) throw new Error(parseApiError(error, 'Failed to load LAB catalog').message);
-            return data ?? { data: [], total: 0 };
-        },
-    });
+    const { data: testsForOrder, isLoading: labCatalogLoading } = useTestsForOrder(
+        Boolean(createdEncounter?.id),
+    );
 
     const { data: encounterLabTests, refetch: refetchEncounterLabTests } = useQuery<ListEncounterLabTestsResponse>({
         queryKey: ['encounter-lab-tests', createdEncounter?.id],
@@ -330,10 +324,10 @@ export function PatientRegistrationForm({
     });
 
     useEffect(() => {
-        if (labCatalog?.data?.length && !selectedLabTestId) {
-            setSelectedLabTestId(labCatalog.data[0].id);
+        if (testsForOrder?.length && !selectedLabTestId) {
+            setSelectedLabTestId(testsForOrder[0].id);
         }
-    }, [labCatalog?.data, selectedLabTestId]);
+    }, [testsForOrder, selectedLabTestId]);
 
     const addLabTest = async () => {
         if (!createdEncounter?.id || !selectedLabTestId) return;
@@ -696,9 +690,9 @@ export function PatientRegistrationForm({
                                             onChange={(e) => setSelectedLabTestId(e.target.value)}
                                             className="block w-full rounded border border-gray-300 p-2 text-sm"
                                         >
-                                            {(labCatalog?.data ?? []).map((test) => (
+                                            {(testsForOrder ?? []).map((test) => (
                                                 <option key={test.id} value={test.id}>
-                                                    {test.department} – {test.name} ({test.code})
+                                                    {test.section ? `${test.section} – ` : ''}{test.name} ({test.code})
                                                 </option>
                                             ))}
                                         </select>

@@ -20,13 +20,18 @@ export default function CatalogVersionsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [page, setPage] = useState(1);
 
+  const statusQuery =
+    statusFilter === 'draft' || statusFilter === 'published' || statusFilter === 'archived'
+      ? statusFilter
+      : undefined;
+
   const { data, error } = useQuery({
-    queryKey: adminKeys.catalogVersions(statusFilter || undefined),
+    queryKey: adminKeys.catalogVersions(statusQuery),
     queryFn: async () => {
       const { data: res, error: err } = await client.GET('/catalog/versions', {
         params: {
           query: {
-            status: statusFilter || undefined,
+            status: statusQuery,
             page,
           },
         },

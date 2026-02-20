@@ -74,10 +74,10 @@ export default function OperatorOrdersDetailPage() {
   });
 
   useEffect(() => {
-    if (labCatalog?.data?.length && !selectedLabTestId) {
-      setSelectedLabTestId(labCatalog.data[0].id);
+    if (testsForOrder?.length && !selectedLabTestId) {
+      setSelectedLabTestId(testsForOrder[0].id);
     }
-  }, [labCatalog?.data, selectedLabTestId]);
+  }, [testsForOrder, selectedLabTestId]);
 
   const addLabTest = useMutation({
     mutationFn: async () => {
@@ -182,9 +182,9 @@ export default function OperatorOrdersDetailPage() {
                   }}
                   className="block w-full rounded border border-[var(--border)] p-2 text-sm text-[var(--text)] bg-[var(--surface)]"
                 >
-                  {(labCatalog?.data ?? []).map((test) => (
+                  {(testsForOrder ?? []).map((test) => (
                     <option key={test.id} value={test.id}>
-                      {test.department} – {test.name} ({test.code})
+                      {test.section ? `${test.section} – ` : ''}{test.name} ({test.code})
                     </option>
                   ))}
                 </select>

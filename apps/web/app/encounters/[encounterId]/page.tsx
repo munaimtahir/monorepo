@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { paths } from '@vexel/contracts';
 import { client } from '@/lib/api';
 import { parseApiError } from '@/lib/api-errors';
+import { useTestsForOrder } from '@/lib/sdk/use-tests-for-order';
 import { IdentityHeader } from '@/components/identity/IdentityHeader';
 import { mapIdentityHeader } from '@/lib/identity/mapIdentity';
 
@@ -29,8 +30,6 @@ type DocumentCommandRequest =
     paths['/encounters/{id}:document']['post']['requestBody']
   >['content']['application/json'];
 type RequestedDocumentType = DocumentResponse['type'];
-type ListLabTestsResponse =
-  paths['/lab/tests']['get']['responses'][200]['content']['application/json'];
 type AddTestToEncounterRequest =
   NonNullable<
     paths['/encounters/{id}:lab-add-test']['post']['requestBody']
@@ -604,26 +603,10 @@ export default function EncounterDetailPage() {
   });
 
   const {
-    data: labCatalog,
+    data: testsForOrder,
     isLoading: labCatalogLoading,
     error: labCatalogError,
-  } = useQuery<ListLabTestsResponse>({
-    queryKey: ['lab-catalog-tests'],
-    enabled: encounter?.type === 'LAB',
-    queryFn: async () => {
-      const { data, error } = await client.GET('/lab/tests');
-
-      if (error) {
-        throw new Error(parseApiError(error, 'Failed to load LAB catalog').message);
-      }
-
-      if (!data) {
-        return { data: [], total: 0 };
-      }
-
-      return data;
-    },
-  });
+  } = useTestsForOrder(encounter?.type === 'LAB');
 
   const {
     data: encounterLabTests,
@@ -881,12 +864,12 @@ export default function EncounterDetailPage() {
   }, [encounter?.id]);
 
   useEffect(() => {
-    if (!labCatalog?.data?.length) {
+    if (!testsForOrder?.length) {
       return;
     }
 
-    setSelectedLabTestId((previous) => previous || labCatalog.data[0].id);
-  }, [labCatalog?.data]);
+    setSelectedLabTestId((previous) => previous || testsForOrder[0].id);
+  }, [testsForOrder]);
 
   useEffect(() => {
     if (!encounterLabTests?.data) {
@@ -2301,9 +2284,9 @@ export default function EncounterDetailPage() {
                       onChange={(event) => setSelectedLabTestId(event.target.value)}
                       className="mt-1 block w-full rounded border border-gray-300 p-2"
                     >
-                      {(labCatalog?.data ?? []).map((test) => (
+                      {(testsForOrder ?? []).map((test) => (
                         <option key={test.id} value={test.id}>
-                          {test.department} - {test.name} ({test.code})
+                          {test.section ? `${test.section} - ` : ''}{test.name} ({test.code})
                         </option>
                       ))}
                     </select>
